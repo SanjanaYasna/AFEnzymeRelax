@@ -14,19 +14,18 @@ import os,re
  """
 class DataConversion(Dataset):
     def __init__(self, root, transform=None, pre_transform=None):
-        super(DataConversion, self).__init__(root, transform=None,
-                pre_transform=None)
+        self.root = root
         #TO DO: possible pre-relax transformation protocol?
         
     def __len__(self):
         return self.data_len
     
     @property
-    def raw_relaxed_afdb_files(self):
-        return [filename for filename in os.scandir(self.root + "/relax_afdb") if "_relaxed_0001.pdb" in filename.name]
+    def raw_pre_relaxed_files(self):
+        return [filename for filename in os.scandir(self.root + "/pre_relax") ]
     @property
-    def raw_pre_relax_files(self):
-        return [filename for filename in os.scandir(self.root + "/alphafoldSwiss") ]
+    def raw_relaxed_afdb_files(self):
+        return [filename for filename in os.scandir(self.root + "/relax") if "_relaxed_0001.pdb" in filename.name]
     
         """
         Input: relax and pre_relax paths
@@ -35,7 +34,7 @@ class DataConversion(Dataset):
         
         
         """
-    def __get_node_feat__(self,  seq_len):
+    def __get_node_feat__(self):
         # node feat
         node_feat = {}
         for file in self.raw_pre_relax_files:
@@ -67,5 +66,7 @@ class DataConversion(Dataset):
         return node_feat
         # for file in self.raw_relaxed_afdb_files:
         #     id = os.path.splitext(os.path.basename(file))[0].replace("_relaxed_0001", "")
+        
+    
         
         

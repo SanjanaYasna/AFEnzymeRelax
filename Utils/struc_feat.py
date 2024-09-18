@@ -1,6 +1,18 @@
 import os, pickle
-import numpy as np
 import Bio.PDB
+import numpy as np
+from Bio.PDB import PDBParser
+from Bio.PDB import Superimposer
+from Bio.PDB.Atom import *
+from Bio.PDB.Residue import *
+from Bio.PDB.Chain import *
+from Bio.PDB.Model import *
+from Bio.PDB.Structure import *
+# from Bio.PDB.Vector import *
+from Bio.PDB.Entity import*
+import math
+from Bio.PDB.Atom import get_vector 
+
 from Bio import SeqIO
 from Bio.PDB.DSSP import DSSP
 from collections import defaultdict
@@ -18,6 +30,84 @@ atom_dict = {"N":0, "CA":1, "C":2, "O":3, "CB":4, "OG":5, "CG":6, "CD1":7, "CD2"
 
 RESIDUE_TYPES = ['A','C','D','E','F','G','H','I','K','L','M','N','P','Q','R','S','T','V','W','Y','X']
 parser = Bio.PDB.PDBParser(QUIET = True)
+
+
+"""
+Inspired by anglesrefine (https://github.com/Cao-Labs/AnglesRefine/blob/main/PDB2Angles.py)
+Extract backbone angles and plane per residue.
+Should be done by both pre-relaxed and relaxed structures
+Input: file path
+Output:
+Angles: phi, psi, omega,  CA_C_N_angle, N_CA_C_angle, C_N_Ca_angle
+Bond Length: C-N (between two residues), Ca-N (same residue), Ca-C (same residue)
+"""
+#TODO figure out a universal geometry builder. Perhaps from PeptideBuilder import Geometry , geometry objects?
+def get_backbone_angles_and_bond_lengths(file): 
+    #load structure
+    structure = parser.get_structure("input", file)
+    C_prev = None
+    N_prev = None
+    CA_prev = None
+    #initialize arrays to store angles and planes
+    residue_angles = {
+        'phi': [],
+        'psi': [],
+        'omega': [],
+        'planes': [],
+        'CA_C_N_angle': [],
+        'N_CA_C_angle': [],
+        'C_N_Ca_angle': []
+    }
+    #iterate over residues
+    for res in structure.get_residues():
+        #check if this is the first residue
+        if C_prev is None:
+            C_prev = res['C']
+            N_prev = res['N']
+            CA_prev = res['CA']
+            continue
+        #if it isn't we can get all the bond lengths and angles:
+        else:
+            try:
+                #get current residue vectors
+                N = res['N'].get_vector()
+                CA = res['CA'].get_vector()
+                C = res['C'].get_vector()
+                O = res['O'].get_vector() #just keep if needed
+            except:
+                continue
+            
+            #calculate dihedral angles of curr residue using the reference atoms of previous C, N, CA
+            residue_angles['phi'].append(Bio.PDB.calc_dihedral(C_prev.get_vector(), N.get_vector(), CA.get_vector(), C.get_vector()))
+            residue_angles['psi'].append(Bio.PDB.calc_dihedral(N_prev.get_vector(), CA_prev.get_vector(), C.get_vector(), N.get_vector()))
+            residue_angles['omega'].append(Bio.PDB.calc_dihedral(CA_prev.get_vector(), C_prev.get_vector(), N.get_vector(), CA.get_vector()))
+            #calculate the plane
+            residue_angles['planes'].append([N, CA, C])
+            
+            
+            #calculate three angles among N, CA, and C
+            CA_C_N_angle =math.radians(Bio.PDB.calc_angle(CA_prev, C_prev, N))
+            N_CA_C_angle = math.radians(Bio.PDB.calc_angle(N, CA, C))
+            C_N_Ca_angle = math.radians(Bio.PDB.calc_angle(C_prev, N, CA))   
+            residue_angles['CA_C_N_angle'].append(CA_C_N_angle)
+            residue_angles['N_CA_C_angle'].append(N_CA_C_angle)
+            residue_angles['C_N_Ca_angle'].append(C_N_Ca_angle)
+            
+            #update the prev values by these new ones 
+            C_prev = C
+            N_prev = N
+            CA_prev = CA
+            
+        #convert to numpy arrays
+        phi_angles = np.vstack(residue_angles['phi'])
+        psi_angles = np.vstack(residue_angles['psi'])
+        omega_angles = np.vstack(residue_angles['omega'])
+        planes = np.vstack(residue_angles['planes'])
+        CA_C_N_angle = np.vstack(residue_angles['CA_C_N_angle'])
+        N_CA_C_angle = np.vstack(residue_angles['N_CA_C_angle'])
+        C_N_Ca_angle = np.vstack(residue_angles['C_N_Ca_angle'])
+        return phi_angles, psi_angles, omega_angles, planes, CA_C_N_angle, N_CA_C_angle, C_N_Ca_angle
+
 
 """
 Return: residue sequence, len of residue sequence 
@@ -64,7 +154,7 @@ def get_atom_emb(pre_relax_file, relax_file, num_residues, residue_sequence):
         ca_pose.append(ca_coords)
         #create atom emb:  one_hot
         atom_emb =  one_hot #np.concatenate([atom_pos_pre_relax, one_hot], axis=1)
-        atom_embs[res.id[1] -1] = atom_emb.astype(np.float16)
+        atom_embs[res.id[1] -1] = np.array(atom_emb).astype(np.float16)
         atom_xyz[res.id[1] -1] = np.array(atom_pos_pre_relax).astype(np.float16)
     return atom_embs, atom_xyz, atom_relax_xyz, atom_nums, ca_pose
         

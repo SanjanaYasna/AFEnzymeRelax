@@ -10,12 +10,14 @@ warnings.filterwarnings("ignore")
 pdb_parser = Bio.PDB.PDBParser(QUIET = True)
 
 """
-Implementation of ScanNet-inspired
+Implementation of ScanNet-inspired reference frame
 """
-"""
-AtomRefine residue local coordinate system implementation:
-"""
+#TODO 
 
+
+"""
+AtomRefine residue local coordinate system/frame implementation:
+"""
 def set_lframe(structure_file, atom_xyz, atom_nums, res_range=None):
     '''
     Agrs:
@@ -61,10 +63,10 @@ def set_lframe(structure_file, atom_xyz, atom_nums, res_range=None):
     
     start, end, j = 0, 0, 0
     atom_idx = [-1 for _ in range(atom_xyz.shape[0])]
-    for i in range(len(atom_lst)):
+    for i in range(len(atom_nums)):
         start = end
-        end += atom_lst[i]
-        atom_idx[start:end] = [j]*atom_lst[i]
+        end += atom_nums[i]
+        atom_idx[start:end] = [j]*atom_nums[i]
         j = j+1
     
     p = np.zeros((atom_xyz.shape[0], atom_xyz.shape[0],3))

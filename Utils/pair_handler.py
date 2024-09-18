@@ -3,7 +3,8 @@ from typing import Any, Tuple, Union, Dict
 
 import pandas as pd
 import numpy as np
-from Bio.PDB.Polypeptide import three_to_one
+#from Bio.PDB.Polypeptide import three_to_one
+from Bio.Data.IUPACData import protein_letters_3to1
 from biopandas.pdb import PandasPdb
 
 from scipy.spatial.distance import euclidean, pdist, rogerstanimoto, squareform
