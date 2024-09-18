@@ -10,6 +10,7 @@ warnings.filterwarnings("ignore")
 pdb_parser = Bio.PDB.PDBParser(QUIET = True)
 
 """
+ATOMIC LEVEL
 Implementation of ScanNet-inspired reference frame
 """
 #TODO 
@@ -17,6 +18,8 @@ Implementation of ScanNet-inspired reference frame
 
 """
 AtomRefine residue local coordinate system/frame implementation:
+RESIDUE LEVEL
+
 """
 def set_lframe(structure_file, atom_xyz, atom_nums, res_range=None):
     '''
@@ -68,6 +71,7 @@ def set_lframe(structure_file, atom_xyz, atom_nums, res_range=None):
         end += atom_nums[i]
         atom_idx[start:end] = [j]*atom_nums[i]
         j = j+1
+        
     
     p = np.zeros((atom_xyz.shape[0], atom_xyz.shape[0],3))
     q = np.zeros((atom_xyz.shape[0], atom_xyz.shape[0],3))

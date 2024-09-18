@@ -38,10 +38,12 @@ Extract backbone angles and plane per residue.
 Should be done by both pre-relaxed and relaxed structures
 Input: file path
 Output:
-Angles: phi, psi, omega,  CA_C_N_angle, N_CA_C_angle, C_N_Ca_angle
-Bond Length: C-N (between two residues), Ca-N (same residue), Ca-C (same residue)
+    6 Angles: phi, psi, omega,  CA_C_N_angle, N_CA_C_angle, C_N_Ca_angle
+    3 bond lengths centered around residue angle frame: Ca-C, N-Ca, C_prev-N
 """
 #TODO figure out a universal geometry builder. Perhaps from PeptideBuilder import Geometry , geometry objects?
+"""
+3 bond lengths centered around residue angle frame: Ca-C, N-Ca, C_prev-N"""
 def get_backbone_angles_and_bond_lengths(file): 
     #load structure
     structure = parser.get_structure("input", file)
@@ -56,31 +58,36 @@ def get_backbone_angles_and_bond_lengths(file):
         'planes': [],
         'CA_C_N_angle': [],
         'N_CA_C_angle': [],
-        'C_N_Ca_angle': []
+        'C_N_Ca_angle': [],
+        'CA_N_length': [],
+        'CA_C_length': [],
+        'N_C_length': []
     }
     #iterate over residues
     for res in structure.get_residues():
         #check if this is the first residue
         if C_prev is None:
-            C_prev = res['C']
-            N_prev = res['N']
-            CA_prev = res['CA']
+            C_prev = res['C'].get_vector()
+            N_prev = res['N'].get_vector()
+            CA_prev = res['CA'].get_vector()
             continue
         #if it isn't we can get all the bond lengths and angles:
         else:
             try:
+                print(res['CA'].get_vector())
                 #get current residue vectors
                 N = res['N'].get_vector()
                 CA = res['CA'].get_vector()
                 C = res['C'].get_vector()
                 O = res['O'].get_vector() #just keep if needed
+                print(C, N, CA, O)
             except:
                 continue
             
             #calculate dihedral angles of curr residue using the reference atoms of previous C, N, CA
-            residue_angles['phi'].append(Bio.PDB.calc_dihedral(C_prev.get_vector(), N.get_vector(), CA.get_vector(), C.get_vector()))
-            residue_angles['psi'].append(Bio.PDB.calc_dihedral(N_prev.get_vector(), CA_prev.get_vector(), C.get_vector(), N.get_vector()))
-            residue_angles['omega'].append(Bio.PDB.calc_dihedral(CA_prev.get_vector(), C_prev.get_vector(), N.get_vector(), CA.get_vector()))
+            residue_angles['phi'].append(math.radians(Bio.PDB.calc_dihedral(C_prev, N, CA, C)))
+            residue_angles['psi'].append(math.radians(Bio.PDB.calc_dihedral(N_prev, CA_prev, C, N)))
+            residue_angles['omega'].append(math.radians(Bio.PDB.calc_dihedral(CA_prev, C_prev, N, CA)))
             #calculate the plane
             residue_angles['planes'].append([N, CA, C])
             
@@ -92,6 +99,15 @@ def get_backbone_angles_and_bond_lengths(file):
             residue_angles['CA_C_N_angle'].append(CA_C_N_angle)
             residue_angles['N_CA_C_angle'].append(N_CA_C_angle)
             residue_angles['C_N_Ca_angle'].append(C_N_Ca_angle)
+            
+            #get the 3 bond lengths 
+            CA_N_length = CA - N
+            CA_C_length = CA - C
+            N_C_length = N - C_prev #this is the peptide bond, so between two residue
+            residue_angles['CA_N_length'].append(CA_N_length)
+            residue_angles['CA_C_length'].append(CA_C_length)
+            residue_angles['N_C_length'].append(N_C_length)
+        
             
             #update the prev values by these new ones 
             C_prev = C
@@ -106,7 +122,11 @@ def get_backbone_angles_and_bond_lengths(file):
         CA_C_N_angle = np.vstack(residue_angles['CA_C_N_angle'])
         N_CA_C_angle = np.vstack(residue_angles['N_CA_C_angle'])
         C_N_Ca_angle = np.vstack(residue_angles['C_N_Ca_angle'])
-        return phi_angles, psi_angles, omega_angles, planes, CA_C_N_angle, N_CA_C_angle, C_N_Ca_angle
+        CA_N_length = np.vstack(residue_angles['CA_N_length'])
+        CA_C_length = np.vstack(residue_angles['CA_C_length'])
+        N_C_length = np.vstack(residue_angles['N_C_length'])
+        
+        return phi_angles, psi_angles, omega_angles, planes, CA_C_N_angle, N_CA_C_angle, C_N_Ca_angle, CA_N_length, CA_C_length, N_C_length
 
 
 """
