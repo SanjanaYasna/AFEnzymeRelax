@@ -143,7 +143,7 @@ def load_pdb(pdb_path):
     return node_labels, np.array(coords), np.array(lrf)
 
 """
-AtomRefine LRF:"""
+AtomRefine LRF snipp;et, per-desidue x y z axis vectors for exhibiting very basic planar geometry"""
 def set_lframe(N_coord, Ca_coord, C_coord, res_range=None):
     '''
     Agrs:
@@ -274,37 +274,57 @@ def create_protein_graph(pdb_path, active_and_binding_site_residues):
     #set local lrfs
     for i in range(len(lrfs)):
         protein_graph.nodes[i]["angle_geom"] = lrfs[i]
+    return protein_graph
     
     '''TO DO: DSSP assignment + possible SASA (
         https://github.com/jertubiana/ScanNet/blob/main/preprocessing/PDB_processing.py#L235
         Scannet line ~238, estimate relative SASA from DSSP
     )'''
-    # groups_df = df.groupby("pdb_id")
-    # functional_nodes = groups_df.get_group(PDB_ID).node_labels.values
-    # headers = groups_df.get_group(PDB_ID)["y"].values
 
-    # func_node_attr = {}
-    # for header, pdbsite_id, lensite_num, nodes in zip(
-    #     headers, pdbsite_ids, lensite, functional_nodes
-    # ):
-    #     for node in nodes:
-    #         if node not in func_node_attr:
-    #             func_node_attr[node] = {
-    #                 "y": 1,
-    #                 "subtype": [header],
-    #                 "pdbsiteid": [pdbsite_id],
-    #                 "lensite": [lensite_num],
-    #                 # "coords": coords[node_labels.index(node)],
-    #             }
-    #         else:
-    #             print("common node found")
-    #             func_node_attr[node]["subtype"].append(header)
-    #             func_node_attr[node]["pdbsiteid"].append(pdbsite_id)
-    #             func_node_attr[node]["lensite"].append(lensite_num)
-    #             print(func_node_attr[node])
+#NEEDS TESTING
+#TODO: add dssp assignment to this factoring of anchor regions 
+"""Adds functionality labels for the ego graph anchor centered at each functional node IF 
 
-    # nx.set_node_attributes(protein_graph, func_node_attr)
-    # return protein_graph
+    >70% of a functional site (what is within 10 distance of that node) is within the ego graph
+    NOTE: "distance" networkx weight metric is used to guage the 10 upper limit. So this isn't necessarily gonig to extract
+    all atoms that are 10 angstroms apart, but atoms that fall within 10
+    of each other in the binary edges of the graph, which are by default 1 between nodes that are 10 angstroms apart by CA. 
+
+    Args:
+        protein_graph (nx.Graph): takes in protein graph processed by create_protein_graph()
+        radius = 2 (int): radius of ego graph
+        overlap_ratio_cutoff = 0.7 (float): ratio of functional nodes within 10 angstroms of a functional node that must be in ego graph for ego label to be 1
+
+    Returns:
+        label_graphs (dict): for each (ground truth = 1) functional node, what are the ground truth graph pdbsites
+        graph is directly edited in-place to include ego_label attribute
+    """
+def ego_label_set(graph: nx.Graph, sites: list, radius = 2, overlap_ratio_cutoff = 0.9):
+    ego_label = {node: 0 for node, att in graph.nodes(data=True)}
+    label_graphs = (
+        {}
+    )  # for each (ground truth = 1) functional node what are the ground truth graph pdbsites
+    functional_nodes = [
+        node for node, att in graph.nodes(data=True) if att["y"] == 1
+    ]
+    for functional_node in functional_nodes:
+        ego_subgraph = nx.ego_graph(graph, functional_node, radius=radius)
+        #count number of functional nodes in ego subgraph
+        func_subgraph_nodes = len([
+            node for node, att in ego_subgraph.nodes(data=True) if att["y"] == 1
+        ])
+        #now find number of functional nodes within 10 angstroms of functional node
+        #extract site nodes numbers, and compute distances
+        total_func_nodes_ten_apart = len([
+            node for node in sites if nx.shortest_path_length(graph, source=functional_node, target=node, weight='distance') <= 10
+        ])
+        #if this functional node has at least [overlap_ratio_cutoff] of the functional nodes within 10 angstroms of it, give it an ego label of 1 and add it
+        #to label_graphs dictionary
+        if func_subgraph_nodes / total_func_nodes_ten_apart > overlap_ratio_cutoff:
+            ego_label[functional_node] = 1
+            label_graphs[functional_node] = ego_subgraph
+    nx.set_node_attributes(graph, ego_label, "ego_label")
+    return label_graphs
 
 #default execution
 if __name__ == "__main__":
@@ -312,4 +332,8 @@ if __name__ == "__main__":
     #add in a csv active and binding site list processor later on, or name these pdb files accordingly
     #ASSUME THAT THESE SITE LABELS ARE FROM THE COUNT OF 1 (NOT FROM 0)
     functional_nodes = [8, 13]
-    create_protein_graph(pdb_path, functional_nodes)
+    graph  = create_protein_graph(pdb_path, functional_nodes)
+    label_graphs = ego_label_set(graph, functional_nodes)
+    #below import will be deleted if this integration was tested successful, which is why imports are here...
+    from model import triplets
+    print(triplets(graph.edges, len(graph.nodes)))
