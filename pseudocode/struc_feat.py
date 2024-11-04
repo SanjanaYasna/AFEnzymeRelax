@@ -295,7 +295,7 @@ def create_protein_graph(pdb_path, active_and_binding_site_residues):
 #TODO: add dssp assignment to this factoring of anchor regions 
 """Adds functionality labels for the ego graph anchor centered at each functional node IF 
 
-    >70% of a functional site (what is within 10 distance of that node) is within the ego graph
+    >90% of a functional site (what is within 10 distance of that node) is within the ego graph
     NOTE: "distance" networkx weight metric is used to guage the 10 upper limit. So this isn't necessarily gonig to extract
     all atoms that are 10 angstroms apart, but atoms that fall within 10
     of each other in the binary edges of the graph, which are by default 1 between nodes that are 10 angstroms apart by CA. 
@@ -336,6 +336,9 @@ def ego_label_set(graph: nx.Graph, sites: list, radius = 2, overlap_ratio_cutoff
     nx.set_node_attributes(graph, ego_label, "ego_label")
     return label_graphs
 
+
+
+
 #default execution
 if __name__ == "__main__":
     pdb_path = "/Users/robsonlab/Teetly/AFEnzymeRelax/test/relax/A0A009IHW8_relaxed_0001.pdb"
@@ -350,7 +353,7 @@ if __name__ == "__main__":
     angle_geom = torch.tensor([att["angle_geom"] for node, att in graph.nodes(data=True)])
     #can x be from model import NodeEmbeddingBlock 
     from relational_module import InitialInteraction
-    try_model = InitialInteraction(32, len(node_one_hot))
+    try_model = InitialInteraction(8, len(node_one_hot))
     out = try_model(node_one_hot, angle_geom, pos, edge_index)
     #below import will be deleted if this integration was tested successful, which is why imports are here...
     

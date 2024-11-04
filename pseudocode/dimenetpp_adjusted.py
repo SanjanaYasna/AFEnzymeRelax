@@ -209,7 +209,6 @@ class InteractionBlock(torch.nn.Module):
         x_kj = torch.einsum('wj,wl,ijl->wi', sbf, x_kj[idx_kj], self.W)
         #convert them to long tensors
         
-        print(x_kj)
         idx_ji = idx_ji.long()
         x_kj = scatter(x_kj, idx_ji, dim=0, reduce='mean')
       #  x_kj = scatter(x_kj, idx_ji, dim=0, dim_size=x.size(0), reduce='sum')

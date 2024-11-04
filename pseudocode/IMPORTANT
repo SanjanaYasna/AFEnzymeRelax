@@ -1,0 +1,22 @@
+Notes 11/4
+
+1. email Samuel
+2. graphs are ultimately the representational bottleneck of the protein itself. When we have protein-specific graphs, we are looking at it per data-sample
+we are not clustering structures together, but we are looking at nodes within individual structures
+Pruning advice:
+a few assumptions: distinction between virtual and real nodes. 
+another aspect of the problem:
+how can we represent protein structure as sturcture function relationships
+but pruning is a subquestion is how we can prune our represetatoin of proteins so we can accurately fish out funcitonal nodes
+often times distal relationships are proxies of something that are physical-chemical in nature
+in terms of pruning layers, individual residues should contribute to residue function more than the motif itself
+so secondary structure motifs are not as important as the residues themselves in terms of pruning preferences
+Pruining is fine, but it artificially inflates evaluation metrics, it's good but experiments should happen independently of pruinng before you start 
+adding in pruning layers. Final model weights are done with pruning. Pruning helps reevaluate occupancy of model (to fill in all possible weights to keep
+as much information about statistical biases) => then prune to keep the most relevant features, but the low and medium importance features are what come out
+during the training procedure. We use pruning to optimize the model for production, but in exploratory phase, we don't want to prune since that minimizes
+differences between worst performers and median performers. 
+
+if you want to prune, do it, but run experiments without pruning first.
+RPNs are only one solution to semantic segmentation, so look at other solutions  
+can re-predict regions in labelled data is enough to run first test 

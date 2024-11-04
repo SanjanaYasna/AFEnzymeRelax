@@ -102,6 +102,7 @@ class InitialInteraction(torch.nn.Module):
                  num_after_skip=2, 
                  #num_output_layers=3, 
                  num_bilinear= 2,
+                 interaction_layers = 3,
                  act = torch.nn.ReLU()):
         super(InitialInteraction, self).__init__()
         #calls the node embedding module to embedd the nodes to have overall dimension of embedding hidden_channels*4
@@ -123,6 +124,9 @@ class InitialInteraction(torch.nn.Module):
             act= act,
             out_dim = hidden_channels * 4
             )
+        self.interaction_layers = interaction_layers
+        self.act = act
+        self.dropout = Dropout(0.1)
         
     #returns indices along rows and columsn, triplet distances and angles, etc...lots of stuff
     def triplets(self, edge_index, num_nodes):
@@ -199,11 +203,20 @@ class InitialInteraction(torch.nn.Module):
         sbf = self.sbf_layer(dist, angle, idx_kj)
         
         #now get the initial interactions from node scalar labels and these geometries computed above
-        interaction_weights = self.initial_interaction(x, rbf, sbf, idx_kj,  idx_ji)
-        #sum out per-node resulting embeddings if want scalar comparisons? For now, entire embedding kept
+     #   interaction_weights = self.initial_interaction(x, rbf, sbf, idx_kj,  idx_ji)
+     
+        #sum out per-node resulting embeddings if want scalar comparisons? For now, entire embedding kept and added to node embeddings 
         #interaction_weights.sum(dim=0)
         
-        print("x_orig shape: ", x_orig.shape)
-        print("interaction_weights shape: ", interaction_weights.shape)
+        # print("x_orig shape: ", x_orig.shape)
+        # print("interaction_weights shape: ", interaction_weights.shape)
+        
+        P = x_orig
+        #iterate interaction_layer times
+        for _ in range(self.interaction_layers):
+            interaction_weights = self.initial_interaction(
+                x, rbf, sbf, idx_kj,  idx_ji)
+            P += interaction_weights
+        P = self.dropout(self.act(P))
         #return both the intitial node embeddings and the result of their interactions
-        return x_orig, interaction_weights
+        return x_orig, P

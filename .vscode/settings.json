@@ -1,5 +1,6 @@
 {
     "files.autoSave": "afterDelay",
     "search.useIgnoreFiles": false,
-    "search.useParentIgnoreFiles": false
+    "search.useParentIgnoreFiles": false,
+    "files.autoSaveDelay": 100
 }
