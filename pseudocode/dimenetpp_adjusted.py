@@ -3,10 +3,10 @@ import os.path as osp
 from math import pi as PI
 from math import sqrt
 from typing import Callable, Union
-
+from torch import Tensor
 import numpy as np
 import torch
-from torch.nn import Embedding, Linear, Dropout
+from torch.nn import Embedding, Linear, Dropout, LazyLinear
 from torch_scatter import scatter
 from torch_sparse import SparseTensor
 
@@ -143,10 +143,19 @@ class ResidualLayer(torch.nn.Module):
     def forward(self, x):
         return x + self.act(self.lin2(self.act(self.lin1(x))))
 
-
+"""Was adjusted to avoid scatter issues..."""
 class InteractionBlock(torch.nn.Module):
-    def __init__(self, hidden_channels, num_bilinear, num_spherical,
-                 num_radial, num_before_skip, num_after_skip, act):
+    def __init__(
+        self,
+        hidden_channels: int,
+        num_bilinear: int,
+        num_spherical: int,
+        num_radial: int,
+        num_before_skip: int,
+        num_after_skip: int,
+        act: Callable,
+        out_dim: int
+    ):
         super().__init__()
         self.act = act
 
@@ -168,8 +177,9 @@ class InteractionBlock(torch.nn.Module):
         self.layers_after_skip = torch.nn.ModuleList([
             ResidualLayer(hidden_channels, act) for _ in range(num_after_skip)
         ])
-
         self.reset_parameters()
+        
+        self.final_lin = LazyLinear(out_dim)
 
     def reset_parameters(self):
         glorot_orthogonal(self.lin_rbf.weight, scale=2.0)
@@ -186,23 +196,31 @@ class InteractionBlock(torch.nn.Module):
         for res_layer in self.layers_after_skip:
             res_layer.reset_parameters()
 
-    def forward(self, x, rbf, sbf, idx_kj, idx_ji):
+#MAKE SURE X IS FLOAT TENSOR (not long)
+    def forward(self, x: Tensor, rbf: Tensor, sbf: Tensor, idx_kj: Tensor,
+                idx_ji: Tensor) -> Tensor:
         rbf = self.lin_rbf(rbf)
         sbf = self.lin_sbf(sbf)
-
+        
         x_ji = self.act(self.lin_ji(x))
         x_kj = self.act(self.lin_kj(x))
+        #multiply on second dimension
         x_kj = x_kj * rbf
         x_kj = torch.einsum('wj,wl,ijl->wi', sbf, x_kj[idx_kj], self.W)
-        x_kj = scatter(x_kj, idx_ji, dim=0, dim_size=x.size(0))
-
+        #convert them to long tensors
+        
+        print(x_kj)
+        idx_ji = idx_ji.long()
+        x_kj = scatter(x_kj, idx_ji, dim=0, reduce='mean')
+      #  x_kj = scatter(x_kj, idx_ji, dim=0, dim_size=x.size(0), reduce='sum')
         h = x_ji + x_kj
         for layer in self.layers_before_skip:
             h = layer(h)
         h = self.act(self.lin(h)) + x
         for layer in self.layers_after_skip:
             h = layer(h)
-
+        #this last thing is very very fishy
+        h = self.final_lin(h.transpose(0, 1))
         return h
 
 

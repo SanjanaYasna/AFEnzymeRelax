@@ -343,7 +343,14 @@ if __name__ == "__main__":
     #ASSUME THAT THESE SITE LABELS ARE FROM THE COUNT OF 1 (NOT FROM 0)
     functional_nodes = [8, 13]
     graph  = create_protein_graph(pdb_path, functional_nodes)
-    print(graph.nodes(data=True))
     label_graphs = ego_label_set(graph, functional_nodes)
+    node_one_hot = torch.tensor([att["x"] for node, att in graph.nodes(data=True)])
+    pos = torch.tensor([att["ca_coords"] for node, att in graph.nodes(data=True)])
+    edge_index = torch.LongTensor(list(graph.edges)).t().contiguous()
+    angle_geom = torch.tensor([att["angle_geom"] for node, att in graph.nodes(data=True)])
+    #can x be from model import NodeEmbeddingBlock 
+    from relational_module import InitialInteraction
+    try_model = InitialInteraction(32, len(node_one_hot))
+    out = try_model(node_one_hot, angle_geom, pos, edge_index)
     #below import will be deleted if this integration was tested successful, which is why imports are here...
     
