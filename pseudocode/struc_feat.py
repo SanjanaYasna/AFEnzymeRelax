@@ -1,4 +1,5 @@
 import re
+from typing import OrderedDict
 import warnings
 import pandas as pd
 import numpy as np
@@ -26,31 +27,31 @@ atom_dict = {"N":0, "CA":1, "C":2, "O":3, "CB":4, "OG":5, "CG":6, "CD1":7, "CD2"
              "OE2":22, "OH":23, "NE":24, "NH1":25, "NH2":26, "OG1":27, "SD":28, "ND1":29, "SG":30, "NE1":31, 
              "CE3":32, "CZ2":33, "CZ3":34, "CH2":35, "OXT":36}
 
-AA_NAME_MAP = {
-    "CYS": "C",
-    "ASP": "D",
-    "SER": "S",
-    "GLN": "Q",
-    "LYS": "K",
-    "ILE": "I",
-    "PRO": "P",
-    "THR": "T",
-    "PHE": "F",
-    "ASN": "N",
-    "GLY": "G",
-    "HIS": "H",
-    "LEU": "L",
-    "ARG": "R",
-    "TRP": "W",
-    "TER": "*",
-    "ALA": "A",
-    "VAL": "V",
-    "GLU": "E",
-    "TYR": "Y",
-    "MET": "M",
-    "XAA": "X",
-}
-
+AA_NAME_MAP = OrderedDict((
+    ("CyS", "C"),
+    ("ASP", "D"),
+    ("SER", "S"),
+    ("GLN", "Q"),
+    ("LYS", "K"),
+    ("ILE", "I"),
+    ("PRO", "P"),
+    ("THR", "T"),
+    ("PHE", "F"),
+    ("ASN", "N"),
+    ("GLY", "G"),
+    ("HIS", "H"),
+    ("LEU", "L"),
+    ("ARG", "R"),
+    ("TRP", "W"),
+    ("ALA", "A"),
+    ("VAL", "V"),
+    ("GLU", "E"),
+    ("TYR", "Y"),
+    ("MET", "M"),
+    ("XAA", "X"),
+    ("TER", "*"))
+)
+AA_NAME_MAP_INDICES = {v: k for k, v in enumerate(AA_NAME_MAP.values())}
 #derived from scannet
 atom_type_mass = {'C': 12, 'CA': 12, 'CB': 12, 'CD': 12, 'CD1': 12, 
      'CD2': 12, 'CE': 12, 'CE1': 12, 'CE2': 12, 'CE3': 12, 
@@ -113,7 +114,7 @@ def load_pdb(pdb_path):
     # sequence = []
     coords = []
     # chain_ids = []
-    embed_dict = {}
+    node_embeddings = []
     node_labels = []
     lrf = []
     for chain in protein:
@@ -128,19 +129,25 @@ def load_pdb(pdb_path):
             lrf.append(set_lframe(residue["N"].coord, residue["CA"].coord, residue["C"].coord, res_range=None))
             coords.append(ca_coord)
             resname = AA_NAME_MAP[residue.resname]
+            #get one-hot encoding of residue
+            res_one_hot = np.zeros(len(AA_NAME_MAP))
+            res_one_hot[AA_NAME_MAP_INDICES[resname]] = 1
+            node_embeddings.append(res_one_hot)
             # sequence.append(resname)
             current_sequence.append(resname)
             residue_number.append(
                 "".join([str(x) for x in residue.get_id()]).strip()
             )
+            
         # print(chain.id, residue_number)
         # assert len(residue_number) == len(current_sequence) == len(embed_values)
         new_node_labels = [
             f"{chain.id}_{n}_{s}" for n, s in zip(residue_number, current_sequence)
         ]
+        
         node_labels += new_node_labels
         assert len(node_labels) == len(coords)
-    return node_labels, np.array(coords), np.array(lrf)
+    return node_labels, np.array(coords), np.array(lrf), np.array(node_embeddings)
 
 """
 AtomRefine LRF snipp;et, per-desidue x y z axis vectors for exhibiting very basic planar geometry"""
@@ -245,7 +252,7 @@ def create_protein_graph(pdb_path, active_and_binding_site_residues):
                                 edges are the contacts between residues
     """
 
-    node_labels, coords, lrfs= load_pdb(pdb_path)
+    node_labels, coords, lrfs, residue_one_hot = load_pdb(pdb_path)
     contacts = compute_contacts(coords, node_labels)
     # plt.imshow(contacts)
     # print(node_labels, info_dict, coords)
@@ -274,6 +281,9 @@ def create_protein_graph(pdb_path, active_and_binding_site_residues):
     #set local lrfs
     for i in range(len(lrfs)):
         protein_graph.nodes[i]["angle_geom"] = lrfs[i]
+    #set residue one-hot encodings
+    for i in range(len(residue_one_hot)):
+        protein_graph.nodes[i]["x"] = residue_one_hot[i]
     return protein_graph
     
     '''TO DO: DSSP assignment + possible SASA (
@@ -333,7 +343,7 @@ if __name__ == "__main__":
     #ASSUME THAT THESE SITE LABELS ARE FROM THE COUNT OF 1 (NOT FROM 0)
     functional_nodes = [8, 13]
     graph  = create_protein_graph(pdb_path, functional_nodes)
+    print(graph.nodes(data=True))
     label_graphs = ego_label_set(graph, functional_nodes)
     #below import will be deleted if this integration was tested successful, which is why imports are here...
-    from model import triplets
-    print(triplets(graph.edges, len(graph.nodes)))
+    
