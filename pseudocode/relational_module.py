@@ -218,5 +218,5 @@ class InitialInteraction(torch.nn.Module):
                 x, rbf, sbf, idx_kj,  idx_ji)
             P += interaction_weights
         P = self.dropout(self.act(P))
-        #return both the intitial node embeddings and the result of their interactions
-        return x_orig, P
+        #return node embeddings from result of their interactions
+        return  P

@@ -7,7 +7,7 @@ from torch_geometric.utils import k_hop_subgraph
 
 from torch_geometric.typing import OptTensor
 from typing import Callable, Optional, Tuple, Union
-from torch.nn import Softmax as softmax
+from torch_geometric.utils import softmax
 
 
 """
@@ -43,18 +43,9 @@ class CustomNodeDropPoolingLayer(torch.nn.Module):
             batch = edge_index.new_zeros(x.size(0), dtype=torch.long)
 
         # Use the GNN to compute raw scores for each node
-        # print(
-        #     "Inside CUstom node drop poooling before self.gnn, x.shape, edge_index",
-        #     edge_index,
-        #     x.shape,
-        # )
         scores = self.gnn(x, edge_index)
-        # .squeeze()
-        # print(
-        #     "Inside CUstom node drop poooling , scores.shape and x.shape",
-        #     scores.shape,
-        #     x.shape,
-        # )
+        print("Inside CUstom node drop poooling scores after self.gnn", scores.shape, scores.shape)
+
         # Apply softmax on the scores within each graph in the batch
         scores = softmax(scores, batch)
 
@@ -69,15 +60,6 @@ class CustomNodeDropPoolingLayer(torch.nn.Module):
 
         # Return the modified x, edge_index, optional edge_attr, batch vector, perm, and scores
         return x, edge_index, edge_attr, batch, perm, scores
-    
-
-import torch
-from torch.nn import Sigmoid
-from torch_geometric.nn import GCNConv, GATConv
-from torch_geometric.nn import conv
-
-# from torch_geometric.nn import SAGPooling
-from torch_geometric.utils import k_hop_subgraph
 
 class FunctionalResiduePredUnit(torch.nn.Module):
     """Pruning unit to process subgraph anchors (ego graphs) and predict nodes 
@@ -155,27 +137,13 @@ class FunctionalResiduePredUnit(torch.nn.Module):
                 # Get node features for the subgraph
                 x_sub = x_orig[subset]
                 print("anchor node representation", x[node].shape)
-                # print("subset of features", x_sub)
-                # print("edge_index_sub", edge_index_sub)
-                # Apply convolution and pooling to the subgraph
-                # x_sub = self.conv2(x_sub, edge_index_sub)
-                # print("shape of x_sub", x_sub.shape)
-                # print("shape of edge_index_sub", edge_index_sub.shape)
-                # print("shape of subgraph_batch", subgraph_batch.shape)
                 x_sub, edge_index_sub, _, subgraph_batch, perm, score_sub = (
                     self.pool_layer(
                         x=x_sub, edge_index=edge_index_sub, batch=subgraph_batch
                     )
                 )
-                # print("NOW LOOK AT PERM", perm)
-                # print("NOW LOOK AT SUBSET of PERM", subset[perm])
-                ##### adding linear layer to score sub
-                # print("scoresubshape", score_sub.shape)
-                # score_sub = self.linear(score_sub.unsqueeze(1))
-                # score_sub = self.sigmoid(score_sub.unsqueeze(1))
+
                 score_sub = self.sigmoid(score_sub)
-                # print("SCORE SUB", score_sub)
-                # ego_nodes.append(perm) # relabelled nodes
                 ego_nodes.append(subset[perm])  # original nodes
                 # Store processed subgraphs
                 assert len(score_sub) == len(
@@ -190,9 +158,10 @@ class FunctionalResiduePredUnit(torch.nn.Module):
             ego_nodes,
         )  # returns list of variable sized tensors with node scores for each ego graph, and nodes as part of ego graph for one batch
 
-
-
-
+"""
+TODO : Implement GRAD-CAM layer visualizations  + output functionality scores per node
+TODO : add a heal-inspired transformer component after the message passing layers 
+"""
 class GraphRPN(torch.nn.Module):
     """Graph RPN Model: A GNN model with NO PRUNING and a functionality prediction unit (that is just attention based)
     for ego labels """
@@ -202,21 +171,24 @@ class GraphRPN(torch.nn.Module):
 
         Args:
             k (_type_): number of layers of GCNs. 2 has been found sufficient priot to GAT layer
-            input_dim (_type_): _description_
-            hidden_dim (_type_): _description_
-            num_classes (_type_): for now, functional or not?
+            input_dim (_type_): batch size 
+            hidden_dim (_type_): dimension of each node embedding 
+            num_classes (_type_): for now, just functional or not? so just 1 by default
         """
         super(GraphRPN, self).__init__()
         self.k_layer_gcn = torch.nn.ModuleList(
-            [GCNConv(input_dim if i == 0 else hidden_dim, hidden_dim) for i in range(k)]
+            [GCNConv(
+                input_dim if i == 0 else 
+                hidden_dim, hidden_dim) for i in range(k)]
         )
         self.functional_residue_prediction_unit = FunctionalResiduePredUnit(k, input_dim, hidden_dim, num_classes)
+        #GAT is used as a final predictoin unit for functionality per node
         self.functionality_prediction_unit = GATConv(hidden_dim, num_classes)
         self.sigmoid = Sigmoid()
         print("input dim to GRPN", input_dim)
         print("hidden dim to GRPN", hidden_dim)
 
-    def forward(self, x, edge_index, batch):
+    def forward(self, x, edge_index, batch = None):
         """_summary_
 
         Args:
@@ -228,14 +200,12 @@ class GraphRPN(torch.nn.Module):
             node_list = nodes as part of ego graph that are predicted
             func_probability = probability of functionality, this aught to be visualized iwth grad-cam
         """
-        # x, edge_index = data.x, data.edge_index
         #more efficient way to clone? 
         x_orig = x.detach().clone()
         # Apply GCN layers
         for gcn in self.k_layer_gcn:
-            # print("inside gcn layer x", x.shape)
-            # print("inside gcn layer edge_index", edge_index.shape)
-            # print("inside gcn layer batch", batch.shape)
+            print("inside gcn layer x", x.shape)
+            print("inside gcn layer edge_index", edge_index.shape)
             x = x.to(torch.float32)
             print("Inside GRPN forward", gcn.lin.weight.shape, x.shape)
             
@@ -243,12 +213,15 @@ class GraphRPN(torch.nn.Module):
                 x=x, edge_index=edge_index
             )  #### TODO: DOES NOT SUPPORT BATCHING NEED TO CHANGE (now, single samples...batched later)
             # print("printing shape of x after gcn layer", x.shape)
-        # Graph ego label prediction 
+            #TODO: IMPLEMENT GRAD-CAM BETWEEN THE TWO TO VISUALIZE THE ATTENTION FROM PENULTIMATE LAYER OF GCN
+            
+        print("x shape after gcn", x.shape)
+        # # Graph ego label prediction 
         node_scores_list, node_list = self.functional_residue_prediction_unit(
             x, x_orig, edge_index, batch
         )
         functionality_logits = self.functionality_prediction_unit(x, edge_index)
-        #TODO: IMPLEMENT GRAD-CAM BETWEEN THE TWO TO VISUALIZE THE ATTENTION
+        
         
         func_probability = self.sigmoid(functionality_logits)
         

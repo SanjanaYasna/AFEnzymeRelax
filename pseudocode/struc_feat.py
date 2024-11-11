@@ -14,9 +14,10 @@ import networkx as nx
 # import torch_geometric.utils
 import pickle 
 import os
-
+from torch_geometric.data import DataLoader
 warnings.simplefilter("ignore")
 warnings.filterwarnings("ignore")
+
 
 __MYPATH__ = os.path.split(os.path.realpath(__file__))[0]
 
@@ -28,7 +29,7 @@ atom_dict = {"N":0, "CA":1, "C":2, "O":3, "CB":4, "OG":5, "CG":6, "CD1":7, "CD2"
              "CE3":32, "CZ2":33, "CZ3":34, "CH2":35, "OXT":36}
 
 AA_NAME_MAP = OrderedDict((
-    ("CyS", "C"),
+    ("CYS", "C"),
     ("ASP", "D"),
     ("SER", "S"),
     ("GLN", "Q"),
@@ -128,7 +129,12 @@ def load_pdb(pdb_path):
             #call the lrf function
             lrf.append(set_lframe(residue["N"].coord, residue["CA"].coord, residue["C"].coord, res_range=None))
             coords.append(ca_coord)
-            resname = AA_NAME_MAP[residue.resname]
+            try: 
+                resname = AA_NAME_MAP[residue.resname]
+            except Exception as e:
+                resname = "X"
+            finally: 
+                resname = "X"
             #get one-hot encoding of residue
             res_one_hot = np.zeros(len(AA_NAME_MAP))
             res_one_hot[AA_NAME_MAP_INDICES[resname]] = 1
@@ -336,24 +342,43 @@ def ego_label_set(graph: nx.Graph, sites: list, radius = 2, overlap_ratio_cutoff
     nx.set_node_attributes(graph, ego_label, "ego_label")
     return label_graphs
 
-
+def get_a_batch(batch_size):
+    pdb_path = "/Users/robsonlab/Teetly/AFEnzymeRelax/test/relax/A0A009IHW8_relaxed_0001.pdb"
+    root = "/Users/robsonlab/Teetly/AFEnzymeRelax/test/relax/"
+    dataset = RetrieveData(root, 8)
+    batch_size = batch_size
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    data = next(iter(dataloader))
+    return data
 
 
 #default execution
 if __name__ == "__main__":
-    pdb_path = "/Users/robsonlab/Teetly/AFEnzymeRelax/test/relax/A0A009IHW8_relaxed_0001.pdb"
+    root = "/Users/robsonlab/Teetly/AFEnzymeRelax/test/relax/"
+    from dataloader import RetrieveData
+    dataset = RetrieveData(root, 8, out_dir = "/Users/robsonlab/Teetly/AFEnzymeRelax/test/data_pts")
+    #save data one by one
+    for i in range(len(dataset.data_list)):
+        dataset.__getitem__(i)
+    # for i in range(len(dataset)):
+    #     data = dataset[i]
+    #     torch.save(data, root + f"graph_{i}.pt")
+    # batch_size = 3
+    # dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+    # data = next(iter(dataloader))
+    
     #add in a csv active and binding site list processor later on, or name these pdb files accordingly
     #ASSUME THAT THESE SITE LABELS ARE FROM THE COUNT OF 1 (NOT FROM 0)
-    functional_nodes = [8, 13]
-    graph  = create_protein_graph(pdb_path, functional_nodes)
-    label_graphs = ego_label_set(graph, functional_nodes)
-    node_one_hot = torch.tensor([att["x"] for node, att in graph.nodes(data=True)])
-    pos = torch.tensor([att["ca_coords"] for node, att in graph.nodes(data=True)])
-    edge_index = torch.LongTensor(list(graph.edges)).t().contiguous()
-    angle_geom = torch.tensor([att["angle_geom"] for node, att in graph.nodes(data=True)])
-    #can x be from model import NodeEmbeddingBlock 
-    from relational_module import InitialInteraction
-    try_model = InitialInteraction(8, len(node_one_hot))
-    out = try_model(node_one_hot, angle_geom, pos, edge_index)
+    # functional_nodes = [8, 13]
+    # graph  = create_protein_graph(pdb_path, functional_nodes)
+    # label_graphs = ego_label_set(graph, functional_nodes)
+    # node_one_hot = torch.tensor([att["x"] for node, att in graph.nodes(data=True)])
+    # pos = torch.tensor([att["ca_coords"] for node, att in graph.nodes(data=True)])
+    # edge_index = torch.LongTensor(list(graph.edges)).t().contiguous()
+    # angle_geom = torch.tensor([att["angle_geom"] for node, att in graph.nodes(data=True)])
+    # #can x be from model import NodeEmbeddingBlock 
+    # from relational_module import InitialInteraction
+    # try_model = InitialInteraction(8, len(node_one_hot))
+    # out = try_model(node_one_hot, angle_geom, pos, edge_index)
     #below import will be deleted if this integration was tested successful, which is why imports are here...
     
