@@ -38,12 +38,15 @@ class RetrieveData(Dataset):
         pos = torch.tensor([att["ca_coords"] for node, att in graph.nodes(data=True)])
         edge_index = torch.LongTensor(list(graph.edges)).t().contiguous()
         angle_geom = torch.tensor([att["angle_geom"] for node, att in graph.nodes(data=True)])
-        initial_embedding = InitialInteraction(self.hidden_channels, len(graph.nodes))
-        node_embs = initial_embedding(node_one_hot, angle_geom, pos, edge_index)
+        # initial_embedding = InitialInteraction(self.hidden_channels, len(graph.nodes))
+        # node_embs = initial_embedding(node_one_hot, angle_geom, pos, edge_index)
         data = Data(edge_index = edge_index,  
                     label_graphs = label_graphs, 
-                    x = node_embs, 
-                    y = torch.tensor([att["y"] for node, att in graph.nodes(data=True)]))
+                    x = node_one_hot, 
+                    pos = pos,
+                    angle_geom = angle_geom,
+                    y = torch.tensor([att["y"] for node, att in graph.nodes(data=True)]),
+                    )
         # data = {"edge_index": edge_index,  "label_graphs": label_graphs, "x": node_embs, "y": torch.tensor([att["y"] for node, att in graph.nodes(data=True)])}
         #save data if out dir specified
         if self.out_dir:

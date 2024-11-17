@@ -14,7 +14,11 @@ import networkx as nx
 # import torch_geometric.utils
 import pickle 
 import os
+import torch_geometric
 from torch_geometric.data import DataLoader
+from CL import OutputPred
+from gcn_net import GraphRPN
+from torch_geometric.data.batch import Batch
 warnings.simplefilter("ignore")
 warnings.filterwarnings("ignore")
 
@@ -342,24 +346,32 @@ def ego_label_set(graph: nx.Graph, sites: list, radius = 2, overlap_ratio_cutoff
     nx.set_node_attributes(graph, ego_label, "ego_label")
     return label_graphs
 
-def get_a_batch(batch_size):
-    pdb_path = "/Users/robsonlab/Teetly/AFEnzymeRelax/test/relax/A0A009IHW8_relaxed_0001.pdb"
-    root = "/Users/robsonlab/Teetly/AFEnzymeRelax/test/relax/"
-    dataset = RetrieveData(root, 8)
-    batch_size = batch_size
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
-    data = next(iter(dataloader))
-    return data
+# def get_a_batch(batch_size):
+#     pdb_path = "/Users/robsonlab/Teetly/AFEnzymeRelax/test/relax/A0A009IHW8_relaxed_0001.pdb"
+#     root = "/Users/robsonlab/Teetly/AFEnzymeRelax/test/relax/"
+#     dataset = RetrieveData(root, 8)
+#     batch_size = batch_size
+#     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+#     data = next(iter(dataloader))
+#     return data
 
 
 #default execution
 if __name__ == "__main__":
     root = "/Users/robsonlab/Teetly/AFEnzymeRelax/test/relax/"
-    from dataloader import RetrieveData
-    dataset = RetrieveData(root, 8, out_dir = "/Users/robsonlab/Teetly/AFEnzymeRelax/test/data_pts")
-    #save data one by one
-    for i in range(len(dataset.data_list)):
-        dataset.__getitem__(i)
+    from dataloader import ProteinDataLoader
+    load_pt = ProteinDataLoader(root = "/Users/robsonlab/Teetly/AFEnzymeRelax/test/data_pts")
+    loader = DataLoader(load_pt, batch_size = 5)
+    data = next(iter(loader))
+    #this is just for the sake of trying out the contrastive learning shit
+    x, edge_index, batch = data.x, data.edge_index, data.batch
+    
+    embed_dim = data.x.shape[1]
+    in_progress_rpn = GraphRPN(32, 32)
+    node_scores, ego_preds, func_scores, nodes = in_progress_rpn(x, edge_index, batch)
+    pred_layer = OutputPred(32, 8)
+    x, x2, pred = pred_layer(nodes, data.batch)
+    
     # for i in range(len(dataset)):
     #     data = dataset[i]
     #     torch.save(data, root + f"graph_{i}.pt")

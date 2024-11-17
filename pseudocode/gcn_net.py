@@ -9,7 +9,6 @@ from torch_geometric.typing import OptTensor
 from typing import Callable, Optional, Tuple, Union
 from torch_geometric.utils import softmax
 
-
 """
 Currently no node-drop prenumbral cone attention implemented. Right now, 
 NO NODES ARE DROPPED (a bit of a misnomer since future work will maybe drop it)
@@ -44,7 +43,6 @@ class CustomNodeDropPoolingLayer(torch.nn.Module):
 
         # Use the GNN to compute raw scores for each node
         scores = self.gnn(x, edge_index)
-        print("Inside CUstom node drop poooling scores after self.gnn", scores.shape, scores.shape)
 
         # Apply softmax on the scores within each graph in the batch
         scores = softmax(scores, batch)
@@ -136,12 +134,13 @@ class FunctionalResiduePredUnit(torch.nn.Module):
 
                 # Get node features for the subgraph
                 x_sub = x_orig[subset]
-                print("anchor node representation", x[node].shape)
                 x_sub, edge_index_sub, _, subgraph_batch, perm, score_sub = (
                     self.pool_layer(
                         x=x_sub, edge_index=edge_index_sub, batch=subgraph_batch
                     )
                 )
+                #result is a collection of anchors that are believed to have the most possible fucntional residues 
+                
 
                 score_sub = self.sigmoid(score_sub)
                 ego_nodes.append(subset[perm])  # original nodes
@@ -166,7 +165,10 @@ class GraphRPN(torch.nn.Module):
     """Graph RPN Model: A GNN model with NO PRUNING and a functionality prediction unit (that is just attention based)
     for ego labels """
 
-    def __init__(self, input_dim, hidden_dim, num_classes = 1, k = 2):
+    def __init__(self, input_dim, hidden_dim, 
+                 num_classes = 1, 
+                 k = 2,
+                 grad_cam = False):
         """_summary_
 
         Args:
@@ -185,8 +187,6 @@ class GraphRPN(torch.nn.Module):
         #GAT is used as a final predictoin unit for functionality per node
         self.functionality_prediction_unit = GATConv(hidden_dim, num_classes)
         self.sigmoid = Sigmoid()
-        print("input dim to GRPN", input_dim)
-        print("hidden dim to GRPN", hidden_dim)
 
     def forward(self, x, edge_index, batch = None):
         """_summary_
@@ -199,31 +199,32 @@ class GraphRPN(torch.nn.Module):
             node_scores_list = list of node scores for each ego graph
             node_list = nodes as part of ego graph that are predicted
             func_probability = probability of functionality, this aught to be visualized iwth grad-cam
+            x = final node embeddings after all layers of GCN
         """
         #more efficient way to clone? 
         x_orig = x.detach().clone()
         # Apply GCN layers
         for gcn in self.k_layer_gcn:
-            print("inside gcn layer x", x.shape)
-            print("inside gcn layer edge_index", edge_index.shape)
             x = x.to(torch.float32)
-            print("Inside GRPN forward", gcn.lin.weight.shape, x.shape)
             
             x = gcn(
                 x=x, edge_index=edge_index
             )  #### TODO: DOES NOT SUPPORT BATCHING NEED TO CHANGE (now, single samples...batched later)
             # print("printing shape of x after gcn layer", x.shape)
-            #TODO: IMPLEMENT GRAD-CAM BETWEEN THE TWO TO VISUALIZE THE ATTENTION FROM PENULTIMATE LAYER OF GCN
             
-        print("x shape after gcn", x.shape)
-        # # Graph ego label prediction 
+            
+        # # Graph functional label prediction 
         node_scores_list, node_list = self.functional_residue_prediction_unit(
             x, x_orig, edge_index, batch
         )
-        functionality_logits = self.functionality_prediction_unit(x, edge_index)
+        #the idea is by controlling the loss of hte node list in corretly identifying the funcitonal regions, you'd have better loss in your attention layer helping the functionallity logits identify ego labels
+        #BCE loss between node_list and data.y
+        #BCE loss between func_probaibilty nad data.ego_label 
         
+        #node scores list is : 
+        functionality_logits = self.functionality_prediction_unit(x, edge_index)
         
         func_probability = self.sigmoid(functionality_logits)
         
-        
-        return node_scores_list, node_list, func_probability
+        #TODO: IMPLEMENT GRAD-CAM BETWEEN THE TWO TO VISUALIZE THE ATTENTION FROM PENULTIMATE LAYER OF GCN
+        return node_scores_list, node_list, func_probability, x
