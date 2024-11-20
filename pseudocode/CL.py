@@ -78,14 +78,20 @@ class OutputPred(nn.Module):
         self.fc1 = nn.Linear(hidden_dim, hidden_dim)
         self.fc2 = nn.Linear(hidden_dim, num_classes)
         self.soft = torch.nn.Softmax()
-        
+    #by default, it is perturbed
     def forward(self, x, batch, perturbed = True):
         x = self.fc1(x)
         if perturbed:
             x = self.soft(x)
             random_noise = torch.rand_like(x).to(x.device)
             x2 = x + torch.sign(x) * F.normalize(random_noise, dim=-1) * 0.1
-        #hacky, but batch together samples quickly. Not ideal at all...
-        x_batched = scatter(x, batch, dim=0)
-        pred = self.fc2(x_batched)
-        return x, x2, pred
+            #hacky, but batch together samples quickly. Not ideal at all...
+            x_batched = scatter(x, batch, dim=0)
+            pred = self.fc2(x_batched)
+            #now put x and x2 in NT_Xent CL 
+            return x, x2, pred
+        else: 
+            x = self.soft(x)
+            x_batched = scatter(x, batch, dim=0)
+            pred = self.fc2(x_batched)
+            return pred

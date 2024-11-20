@@ -168,7 +168,7 @@ class GraphRPN(torch.nn.Module):
     def __init__(self, input_dim, hidden_dim, 
                  num_classes = 1, 
                  k = 2,
-                 grad_cam = False):
+                 grad_cam = True):
         """_summary_
 
         Args:
@@ -187,6 +187,7 @@ class GraphRPN(torch.nn.Module):
         #GAT is used as a final predictoin unit for functionality per node
         self.functionality_prediction_unit = GATConv(hidden_dim, num_classes)
         self.sigmoid = Sigmoid()
+        self.grad_cam = grad_cam
 
     def forward(self, x, edge_index, batch = None):
         """_summary_
@@ -227,4 +228,6 @@ class GraphRPN(torch.nn.Module):
         func_probability = self.sigmoid(functionality_logits)
         
         #TODO: IMPLEMENT GRAD-CAM BETWEEN THE TWO TO VISUALIZE THE ATTENTION FROM PENULTIMATE LAYER OF GCN
+        if self.grad_cam:
+            pass
         return node_scores_list, node_list, func_probability, x
