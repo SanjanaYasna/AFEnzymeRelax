@@ -164,6 +164,12 @@ class InitialInteraction(torch.nn.Module):
     edge_index = torch.LongTensor(list(graph.edges)).t().contiguous()
     angle_geom = torch.tensor([att["angle_geom"] for node, att in graph.nodes(data=True)])
     """
+    
+    #take in list of torch tensors 
+    #after running through entire set, run forward and backwards after
+    #batch != parallel
+    #can apply scan and distribute functions on what must be universally distributed... 
+    
     def forward(self, x: torch.Tensor, angle_geom: torch.Tensor, ca_coords: torch.Tensor, edge_index: torch.Tensor) -> torch.Tensor:
         '''
         triplet set = triplets(edge_index, num_nodes)
@@ -173,7 +179,6 @@ class InitialInteraction(torch.nn.Module):
         angles = torch.acos((torch.sum((ca_coords[triplet_set[2]] - 
         ca_coords[triplet_set[3]]) * (ca_coords[triplet_set[4]] - 
         ca_coords[triplet_set[3]]), dim=1) / (distances * distances)))
-        
         #apply rbf transofrmation
         rbf = self.rbf(distances)
         #embeding block of nodes from rbf
