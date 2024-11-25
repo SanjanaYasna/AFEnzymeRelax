@@ -93,7 +93,7 @@ class NodeEmbeddingBlock(torch.nn.Module):
         return embs
     
 class InitialInteraction(torch.nn.Module):
-    def __init__(self, hidden_channels, num_nodes,
+    def __init__(self, hidden_channels, num_nodes, one_hot_dim = 22,
                  num_spherical=7, 
                  num_radial=6, 
                  cutoff = 5.0,
@@ -106,7 +106,7 @@ class InitialInteraction(torch.nn.Module):
                  act = torch.nn.ReLU()):
         super(InitialInteraction, self).__init__()
         #calls the node embedding module to embedd the nodes to have overall dimension of embedding hidden_channels*4
-        self.node_embeddings = NodeEmbeddingBlock(22, hidden_channels)
+        self.node_embeddings = NodeEmbeddingBlock(one_hot_dim, hidden_channels)
         self.rbf_emb = BesselBasisLayer(
             num_radial=num_radial, cutoff=cutoff, envelope_exponent=envelope_exponent)
         self.sbf_layer = SphericalBasisLayer(num_spherical = num_spherical,
@@ -202,7 +202,7 @@ class InitialInteraction(torch.nn.Module):
         a = (pos_ji * pos_ki).sum(dim=-1)
         b = torch.cross(pos_ji, pos_ki).norm(dim=-1)
         angle = torch.atan2(b, a)
-        
+
         #get rbf and sbf embeddings 
         rbf = self.rbf_emb(dist)
         sbf = self.sbf_layer(dist, angle, idx_kj)
@@ -213,9 +213,6 @@ class InitialInteraction(torch.nn.Module):
         #sum out per-node resulting embeddings if want scalar comparisons? For now, entire embedding kept and added to node embeddings 
         #interaction_weights.sum(dim=0)
         
-        # print("x_orig shape: ", x_orig.shape)
-        # print("interaction_weights shape: ", interaction_weights.shape)
-        
         P = x_orig
         #iterate interaction_layer times
         for _ in range(self.interaction_layers):
@@ -223,5 +220,6 @@ class InitialInteraction(torch.nn.Module):
                 x, rbf, sbf, idx_kj,  idx_ji)
             P += interaction_weights
         P = self.dropout(self.act(P))
+        print("resulting shape: ", P.shape)
         #return node embeddings from result of their interactions
         return  P

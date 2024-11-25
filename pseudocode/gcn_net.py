@@ -164,26 +164,24 @@ TODO : add a heal-inspired transformer component after the message passing layer
 class GraphRPN(torch.nn.Module):
     """Graph RPN Model: A GNN model with NO PRUNING and a functionality prediction unit (that is just attention based)
     for ego labels """
-
-    def __init__(self, input_dim, hidden_dim, 
+    #CURRENTLY THERE IS NO DOWNSCALING NOR UPSCALING IN HIDDEN DIMENSIONS FOR GCN AND GAT
+    def __init__(self, hidden_dim, 
                  num_classes = 1, 
                  k = 2,
                  grad_cam = True):
         """_summary_
 
         Args:
-            k (_type_): number of layers of GCNs. 2 has been found sufficient priot to GAT layer
+            k (_type_): number of layers of GCNs. 2 has been found sufficient prior to GAT layer
             input_dim (_type_): batch size 
             hidden_dim (_type_): dimension of each node embedding 
             num_classes (_type_): for now, just functional or not? so just 1 by default
         """
         super(GraphRPN, self).__init__()
         self.k_layer_gcn = torch.nn.ModuleList(
-            [GCNConv(
-                input_dim if i == 0 else 
-                hidden_dim, hidden_dim) for i in range(k)]
+            [GCNConv(hidden_dim, hidden_dim) for i in range(k)]
         )
-        self.functional_residue_prediction_unit = FunctionalResiduePredUnit(k, input_dim, hidden_dim, num_classes)
+        self.functional_residue_prediction_unit = FunctionalResiduePredUnit(k, hidden_dim, hidden_dim, num_classes)
         #GAT is used as a final predictoin unit for functionality per node
         self.functionality_prediction_unit = GATConv(hidden_dim, num_classes)
         self.sigmoid = Sigmoid()

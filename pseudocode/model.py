@@ -10,31 +10,64 @@ from typing import Callable, Optional, Tuple, Union
 from torch_geometric.utils import softmax
 
 from gcn_net import GraphRPN
-
-
+from relational_module import InitialInteraction
+from CL import OutputPred
 class MainModel(torch.nn.Module): 
     def __init__(self, 
-                 # needed for node embedding block
-                 one_hot_dim,
-                 hidden_channels, 
-                 #2 required graphrpn params
+                # needed for node embedding block, intitial interaction, and rpn
+                hidden_channels, 
+                #2 required graphrpn params
                 input_dim, 
-                 hidden_dim, 
-                 # initial interactoins (using adjusted dimenetpp)
-                 num_nodes,
-                 num_spherical=7, 
-                 num_radial=6, 
-                 cutoff = 5.0,
-                 envelope_exponent=5,
-                 num_before_skip=1,
-                 num_after_skip=2, 
-                 num_bilinear= 2,
-                 interaction_layers = 3,
-                 act = torch.nn.ReLU(),
-                 #used in graphrpn
-                 num_classes = 1, 
-                 k = 2,
-                 grad_cam = True
-                 ):
+                # initial interactoins (using adjusted dimenetpp)
+                num_nodes,
+                #one_hot_dim for node embedding block
+                one_hot_dim =22,
+                num_spherical=7, 
+                num_radial=6, 
+                cutoff = 5.0,
+                envelope_exponent=5,
+                num_before_skip=1,
+                num_after_skip=2, 
+                num_bilinear= 2,
+                interaction_layers = 3,
+                act = torch.nn.ReLU(),
+                #used in graphrpn
+                num_classes = 1, 
+                k = 2,
+                grad_cam = True,
+                #for output_pred, num unique classses default 8 
+                pred_classes =8,
+                perturbed = True
+                ):
         super(MainModel, self).__init__()
+        #initial interaction encompasses node-embedding block
+        self.perturbed = perturbed
+        self.initial_interaction = InitialInteraction(hidden_channels, num_nodes, one_hot_dim = one_hot_dim,
+                                    num_spherical=num_spherical, 
+                                    num_radial=num_radial, 
+                                    cutoff = cutoff,
+                                    envelope_exponent=envelope_exponent,
+                                    num_before_skip=num_before_skip,
+                                    num_after_skip=num_after_skip, 
+                                    num_bilinear= num_bilinear,
+                                    interaction_layers = interaction_layers,
+                                    act = act)
+        
+        self.rpn = GraphRPN(hidden_dim=hidden_channels*4, #INITIAL INTERACTION OUTPUTS 4*HIDDEN_CHANNELS, SO RPN HAS THIS VALUE AS A RESULT 
+                            num_classes=num_classes,
+                            k=k,
+                            grad_cam=grad_cam
+                            )
+        
+        self.OutputPred = OutputPred(hidden_dim=hidden_channels*4, num_classes = pred_classes)
+    def forward(self, x: torch.Tensor, angle_geom: torch.Tensor, ca_coords: torch.Tensor, edge_index: torch.Tensor, batch: list):
+        x = self.initial_interaction(x, angle_geom, ca_coords, edge_index)
+        print("x shape before rpn", x.shape)
+        node_scores, node_list, func_probability, x = self.rpn(x, edge_index, batch)
+        print("x shape after rpn:", x.shape)
+        if self.perturbed:
+            #you get series of predictions for each of the pred_classes
+            x, x2, pred = self.OutputPred(x, batch, perturbed = True)
+        print(pred, pred.shape)
+        return x, node_scores, node_list, func_probability
     pass

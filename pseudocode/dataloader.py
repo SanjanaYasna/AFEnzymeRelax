@@ -58,11 +58,10 @@ class RetrieveData(Dataset):
 
 #get dataloader for pytorch geometric data objects
 class ProteinDataLoader(DataLoader):
-    def __init__(self, root):
-        self.root = root
-        self.dataset = [root + "/" + file for file in os.listdir(root)]
+    def __init__(self, pt_path):
+        self.files = set(os.listdir(pt_path))
         super(ProteinDataLoader, self).__init__(self.dataset)
     def __len__(self):
-        return len(self.dataset)
+        return len(self.files)
     def __getitem__(self, idx):
         return torch.load(self.dataset[idx])
