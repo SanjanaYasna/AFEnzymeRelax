@@ -144,6 +144,8 @@ class ResidualLayer(torch.nn.Module):
         return x + self.act(self.lin2(self.act(self.lin1(x))))
 
 """Was adjusted to avoid scatter issues..."""
+"""Was adjusted to avoid scatter issues..."""
+#Meant to take hidden_channels * 4 as input?
 class InteractionBlock(torch.nn.Module):
     def __init__(
         self,
@@ -153,15 +155,14 @@ class InteractionBlock(torch.nn.Module):
         num_radial: int,
         num_before_skip: int,
         num_after_skip: int,
-        act: Callable,
-        out_dim: int
+        act: Callable
     ):
         super().__init__()
         self.act = act
 
         self.lin_rbf = Linear(num_radial, hidden_channels, bias=False)
         self.lin_sbf = Linear(num_spherical * num_radial, num_bilinear,
-                              bias=False)
+                            bias=False)
 
         # Dense transformations of input messages.
         self.lin_kj = Linear(hidden_channels, hidden_channels)
@@ -179,8 +180,6 @@ class InteractionBlock(torch.nn.Module):
         ])
         self.reset_parameters()
         
-        self.final_lin = LazyLinear(out_dim)
-
     def reset_parameters(self):
         glorot_orthogonal(self.lin_rbf.weight, scale=2.0)
         glorot_orthogonal(self.lin_sbf.weight, scale=2.0)
@@ -197,36 +196,40 @@ class InteractionBlock(torch.nn.Module):
             res_layer.reset_parameters()
 
 #MAKE SURE X IS FLOAT TENSOR (not long)
-    def forward(self, x: Tensor, rbf: Tensor, sbf: Tensor, idx_kj: Tensor,
-                idx_ji: Tensor) -> Tensor:
+#ji = updated message
+#kj = origin of updated ji. Updated by ji, rbf, and transform with sbf 
+    def forward(self, x: Tensor, rbf: Tensor, sbf: Tensor, idx_kj: Tensor, i: Tensor) -> Tensor:
+        #linear layers for rbf and sbf
         rbf = self.lin_rbf(rbf)
         sbf = self.lin_sbf(sbf)
-        
+        #lin_ji and lin_kj must take in hidden_channels *4 since that is size of x
         x_ji = self.act(self.lin_ji(x))
         x_kj = self.act(self.lin_kj(x))
-        #multiply on second dimension
+        #scatter sbf to rbf shape first
+        sbf =  scatter(sbf, idx_kj, dim=0, dim_size = rbf.shape[0]) 
+        #scatter rbf to num nodes shape
+        rbf = scatter(rbf, i, dim=0, dim_size=x.shape[0])
+        #pass rbf message to kj tensor 
         x_kj = x_kj * rbf
-        x_kj = torch.einsum('wj,wl,ijl->wi', sbf, x_kj[idx_kj], self.W)
-        #convert them to long tensors
-        
-        idx_ji = idx_ji.long()
-        x_kj = scatter(x_kj, idx_ji, dim=0, reduce='mean')
-      #  x_kj = scatter(x_kj, idx_ji, dim=0, dim_size=x.size(0), reduce='sum')
+        #bilinear transformation with sbf
+        x_kj = torch.einsum('wj,wl,ijl->wi', sbf, x_kj[i], self.W)
+        #transform x_kj back to num nodes
+        x_kj = scatter(x_kj, i, dim=0, dim_size = x.shape[0],reduce='mean')
+        #now add to ji to complete the message 
         h = x_ji + x_kj
         for layer in self.layers_before_skip:
             h = layer(h)
         h = self.act(self.lin(h)) + x
         for layer in self.layers_after_skip:
             h = layer(h)
-        #this last thing is very very fishy
-        h = self.final_lin(h.transpose(0, 1))
         return h
+
 
 
 class InteractionPPBlock(torch.nn.Module):
     def __init__(self, hidden_channels, int_emb_size, basis_emb_size,
-                 num_spherical, num_radial, num_before_skip, num_after_skip,
-                 act):
+                num_spherical, num_radial, num_before_skip, num_after_skip,
+                act):
         super().__init__()
         self.act = act
 
@@ -235,7 +238,7 @@ class InteractionPPBlock(torch.nn.Module):
         self.lin_rbf2 = Linear(basis_emb_size, hidden_channels, bias=False)
 
         self.lin_sbf1 = Linear(num_spherical * num_radial, basis_emb_size,
-                               bias=False)
+                            bias=False)
         self.lin_sbf2 = Linear(basis_emb_size, int_emb_size, bias=False)
 
         # Hidden transformation of input message:
@@ -576,16 +579,16 @@ class DimeNetPlusPlus(DimeNet):
            'master/pretrained/dimenet_pp')
 
     def __init__(self, 
-                 num_classes: int,
-                 hidden_channels: int, out_channels: int,
-                 num_blocks: int, int_emb_size: int, basis_emb_size: int,
-                 out_emb_channels: int, num_spherical: int, num_radial: int,
-                 cutoff: float = 5.0, max_num_neighbors: int = 32,
-                 envelope_exponent: int = 5, num_before_skip: int = 1,
-                 num_after_skip: int = 2, num_output_layers: int = 3,
-                 readout: str = "mean", dropout: float = 0.0,
-                 resolution: str = "residue",
-                 act: Union[str, Callable] = 'swish'):
+                num_classes: int,
+                hidden_channels: int, out_channels: int,
+                num_blocks: int, int_emb_size: int, basis_emb_size: int,
+                out_emb_channels: int, num_spherical: int, num_radial: int,
+                cutoff: float = 5.0, max_num_neighbors: int = 32,
+                envelope_exponent: int = 5, num_before_skip: int = 1,
+                num_after_skip: int = 2, num_output_layers: int = 3,
+                readout: str = "mean", dropout: float = 0.0,
+                resolution: str = "residue",
+                act: Union[str, Callable] = 'swish'):
 
         act = activation_resolver(act)
 

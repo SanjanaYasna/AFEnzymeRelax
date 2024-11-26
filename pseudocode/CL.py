@@ -70,28 +70,41 @@ class NT_Xent(nn.Module):
         loss = self.criterion(logits, labels)
         loss /= N
         return loss
-    
+
+#simpler solution: LOSS BASED SOFTMAX
+#convert logits to exponential space 
+#then you perform softmax 
+
+#OR infomax =informaiton dependent softmax 
 class OutputPred(nn.Module):
     def __init__(self, hidden_dim, num_classes = 8):
         super(OutputPred, self).__init__()
         #flatten layer
         self.fc1 = nn.Linear(hidden_dim, hidden_dim)
         self.fc2 = nn.Linear(hidden_dim, num_classes)
-        self.soft = torch.nn.Softmax()
+        self.soft = torch.nn.Softmax(dim=1)
+        self.softmax_temp = self.softmax_temp
+    #"temperature" normalized softmax 
+    def softmax_temp(self, input, t=1.0):
+        print("input", input)
+        ex = torch.exp(input/t)
+        print("exp", ex)
+        sum = torch.sum(ex, axis=0)
+        return ex / sum
     #by default, it is perturbed
     def forward(self, x, batch, perturbed = True):
         x = self.fc1(x)
         if perturbed:
-            x = self.soft(x)
             random_noise = torch.rand_like(x).to(x.device)
             x2 = x + torch.sign(x) * F.normalize(random_noise, dim=-1) * 0.1
             #hacky, but batch together samples quickly. Not ideal at all...
             x_batched = scatter(x, batch, dim=0)
             pred = self.fc2(x_batched)
-            #now put x and x2 in NT_Xent CL 
+            #mask any values that are 0
+            pred = self.soft(torch.exp(pred))
+            #now put x and x2 in NT_Xent CL loss!
             return x, x2, pred
         else: 
-            x = self.soft(x)
             x_batched = scatter(x, batch, dim=0)
-            pred = self.fc2(x_batched)
+            pred = self.softmax_temp(self.fc2(x_batched))
             return pred

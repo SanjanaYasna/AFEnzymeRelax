@@ -29,7 +29,6 @@ hidden_channels: number of hidden channels
 class NodeEmbeddingBlock(torch.nn.Module):
     def __init__(self, one_hot_dim, hidden_channels):
         super().__init__()
-        #self.emb = Embedding(num_atoms, hidden_channels)
         self.emb = Linear(one_hot_dim, hidden_channels)
         self.lin_angle_geom = Linear(3, hidden_channels)
         self.lin_angle_final = LazyLinear(hidden_channels)
@@ -75,7 +74,9 @@ class NodeEmbeddingBlock(torch.nn.Module):
         #embed one hot encodings
         #error: expected scalar type Long but found Float...
         x = x.float()
+
         x = self.emb(x) 
+
         angle_geom = self.act(self.lin_angle_geom(angle_geom))
         #flatten the last two dimensions together of angle_Geom
         angle_geom = self.lin_angle_final(angle_geom.view(angle_geom.size(0), -1))
@@ -88,22 +89,21 @@ class NodeEmbeddingBlock(torch.nn.Module):
         angle_geom = (num_nodes, hidden_channels)
         rbf = (num_nodes, hidden_channels * 2)
         """
-        embs = self.act(torch.cat([x, angle_geom, rbf], dim=-1))
-        
+        embs = self.act(torch.cat((x, angle_geom, rbf), -1))
         return embs
     
 class InitialInteraction(torch.nn.Module):
-    def __init__(self, hidden_channels, num_nodes, one_hot_dim = 22,
-                 num_spherical=7, 
-                 num_radial=6, 
-                 cutoff = 5.0,
-                 envelope_exponent=5,
-                 num_before_skip=1,
-                 num_after_skip=2, 
-                 #num_output_layers=3, 
-                 num_bilinear= 2,
-                 interaction_layers = 3,
-                 act = torch.nn.ReLU()):
+    def __init__(self, hidden_channels, one_hot_dim = 22,
+                num_spherical=7, 
+                num_radial=6, 
+                cutoff = 5.0,
+                envelope_exponent=5,
+                num_before_skip=1,
+                num_after_skip=2, 
+                #num_output_layers=3, 
+                num_bilinear= 2,
+                interaction_layers = 3,
+                act = torch.nn.ReLU()):
         super(InitialInteraction, self).__init__()
         #calls the node embedding module to embedd the nodes to have overall dimension of embedding hidden_channels*4
         self.node_embeddings = NodeEmbeddingBlock(one_hot_dim, hidden_channels)
@@ -114,15 +114,14 @@ class InitialInteraction(torch.nn.Module):
             cutoff = cutoff,
             envelope_exponent=envelope_exponent)
         #interaction block needs to know num_nodes to output its [num_nodes, hidden_channels] tensor without issues with einsum
-        self.initial_interaction =  InteractionBlock(
-            hidden_channels= num_nodes,
+        self.interaction_block =  InteractionBlock(
+            hidden_channels= hidden_channels*4,
             num_bilinear= num_bilinear,
             num_spherical= num_spherical,
             num_radial=num_radial,
             num_before_skip= num_before_skip,
             num_after_skip= num_after_skip,
-            act= act,
-            out_dim = hidden_channels * 4
+            act= act
             )
         self.interaction_layers = interaction_layers
         self.act = act
@@ -130,7 +129,7 @@ class InitialInteraction(torch.nn.Module):
         
     #returns indices along rows and columsn, triplet distances and angles, etc...lots of stuff
     def triplets(self, edge_index, num_nodes):
-       # edge_index = torch.tensor(list(edge_index)).t().contiguous()
+        # edge_index = torch.tensor(list(edge_index)).t().contiguous()
         row, col = edge_index  # j->i
         value = torch.arange(row.size(0), device=row.device)
         adj_t = SparseTensor(row=col, col=row, value=value,
@@ -187,13 +186,10 @@ class InitialInteraction(torch.nn.Module):
         '''
         #get node embeddings
         x_orig = self.node_embeddings(x, angle_geom, ca_coords)
-        #for rbf and sbf functions, the nodes are represented by single scalars of their position relative to others in protein sequence....
-        x = torch.arange(len(x_orig), device=x_orig.device)
-        x = x.float()
-        
         #get triplet pairs and indices
         i, j, idx_i, idx_j, idx_k, idx_kj, idx_ji = self.triplets(
-                    edge_index, num_nodes=len(x))
+                    edge_index, len(x_orig))
+        
         # Calculate distances.
         dist = (ca_coords[i] - ca_coords[j]).pow(2).sum(dim=-1).sqrt()
         # Calculate angles.
@@ -207,19 +203,12 @@ class InitialInteraction(torch.nn.Module):
         rbf = self.rbf_emb(dist)
         sbf = self.sbf_layer(dist, angle, idx_kj)
         
-        #now get the initial interactions from node scalar labels and these geometries computed above
-     #   interaction_weights = self.initial_interaction(x, rbf, sbf, idx_kj,  idx_ji)
-     
-        #sum out per-node resulting embeddings if want scalar comparisons? For now, entire embedding kept and added to node embeddings 
-        #interaction_weights.sum(dim=0)
-        
         P = x_orig
         #iterate interaction_layer times
         for _ in range(self.interaction_layers):
-            interaction_weights = self.initial_interaction(
-                x, rbf, sbf, idx_kj,  idx_ji)
+            interaction_weights = self.interaction_block(
+                x_orig, rbf, sbf, idx_kj,  i)
             P += interaction_weights
         P = self.dropout(self.act(P))
-        print("resulting shape: ", P.shape)
         #return node embeddings from result of their interactions
         return  P

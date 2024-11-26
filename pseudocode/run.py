@@ -29,11 +29,10 @@ class ProteinDataLoader(DataLoader):
 dataloader = ProteinDataLoader('/kuhpc/scratch/slusky/syasna_sta/swissprot_protein_data/pdb_pts', 
                                '/kuhpc/work/slusky/syasna_sta/func_pred/AFEnzymeRelax/data_stats/possible_tsvs/final_protein_dataset.csv'
                                )
-batch_size = 5
-train_loader = DataLoader(dataloader, batch_size=3, shuffle=True)
+batch_size = 3
+train_loader = DataLoader(dataloader, batch_size=2, shuffle=False)
 
 for data in train_loader:
     break
-
 model = MainModel(8, batch_size, len(data.x))
 res = model(data.x, data.angle_geom, data.pos, data.edge_index, data.batch)

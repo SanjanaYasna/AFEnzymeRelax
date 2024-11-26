@@ -56,12 +56,18 @@ class RetrieveData(Dataset):
     
 #dataloader for pt data...
 
-#get dataloader for pytorch geometric data objects
+#TODO JUST MAKE A MAP OF ENTRY TO PT FILE PATH
 class ProteinDataLoader(DataLoader):
-    def __init__(self, pt_path):
-        self.files = set(os.listdir(pt_path))
-        super(ProteinDataLoader, self).__init__(self.dataset)
+    def __init__(self, pt_path, csv_path):
+        self.files = list(os.listdir(pt_path))
+        self.pt_path = pt_path
+        self.csv = pd.read_csv(csv_path)    
+        super(ProteinDataLoader, self).__init__(self)
     def __len__(self):
         return len(self.files)
     def __getitem__(self, idx):
-        return torch.load(self.dataset[idx])
+        #get file name at csv idx
+        file_name = self.csv.iloc[idx, 0]
+        r = re.compile(f'{file_name}*')
+        file_path = self.pt_path + "/" + list(filter(r.match, self.files))[0]
+        return torch.load(file_path)
