@@ -49,7 +49,8 @@ AA_NAME_MAP = OrderedDict((
     ("TYR", "Y"),
     ("MET", "M"),
     ("XAA", "X"),
-    ("TER", "*"))
+    ("TER", "*"),
+    ("UGA", "U"))
 )
 AA_NAME_MAP_INDICES = {v: k for k, v in enumerate(AA_NAME_MAP.values())}
 #derived from scannet

@@ -106,5 +106,7 @@ class OutputPred(nn.Module):
             return x, x2, pred
         else: 
             x_batched = scatter(x, batch, dim=0)
-            pred = self.softmax_temp(self.fc2(x_batched))
+            pred = self.fc2(x_batched)
+            #mask any values that are 0
+            pred = self.soft(torch.exp(pred))
             return pred
