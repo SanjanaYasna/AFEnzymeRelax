@@ -144,7 +144,6 @@ class ResidualLayer(torch.nn.Module):
         return x + self.act(self.lin2(self.act(self.lin1(x))))
 
 """Was adjusted to avoid scatter issues..."""
-"""Was adjusted to avoid scatter issues..."""
 #Meant to take hidden_channels * 4 as input?
 class InteractionBlock(torch.nn.Module):
     def __init__(

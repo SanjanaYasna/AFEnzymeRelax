@@ -6,7 +6,7 @@ import pandas as pd
 import os
 from struc_feat import create_protein_graph, ego_label_set  
 from relational_module import InitialInteraction
-
+import re
 from torch_geometric.data import Data
 
 #Put in an out_dir to get an outpath for pt files that are put in

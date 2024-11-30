@@ -20,7 +20,8 @@ warnings.filterwarnings("ignore")
 
 __MYPATH__ = os.path.split(os.path.realpath(__file__))[0]
 
-heavy_atoms = pickle.load(open("/kuhpc/work/slusky/syasna_sta/func_pred/AFEnzymeRelax/Utils/heavy_atoms.pkl", "rb"))
+#FOR DSSP, WHICH IS TBD
+#heavy_atoms = pickle.load(open("/kuhpc/work/slusky/syasna_sta/func_pred/AFEnzymeRelax/Utils/heavy_atoms.pkl", "rb"))
 #atom_dict = {'C':0, 'N':1, 'O':2, 'S':3}
 atom_dict = {"N":0, "CA":1, "C":2, "O":3, "CB":4, "OG":5, "CG":6, "CD1":7, "CD2":8, "CE1":9, "CE2":10, "CZ":11, 
              "OD1":12, "ND2":13, "CG1":14, "CG2":15, "CD":16, "CE":17, "NZ":18, "OD2":19, "OE1":20, "NE2":21, 

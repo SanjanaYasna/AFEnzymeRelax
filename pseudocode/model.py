@@ -18,6 +18,7 @@ class MainModel(torch.nn.Module):
                 hidden_channels, 
                 #one_hot_dim for node embedding block
                 one_hot_dim =22,
+                #initial interaction block params
                 num_spherical=7, 
                 num_radial=6, 
                 cutoff = 5.0,
@@ -58,13 +59,12 @@ class MainModel(torch.nn.Module):
         self.OutputPred = OutputPred(hidden_dim=hidden_channels*4, num_classes = pred_classes)
     def forward(self, x: torch.Tensor, angle_geom: torch.Tensor, ca_coords: torch.Tensor, edge_index: torch.Tensor, batch: list):
         x = self.initial_interaction(x, angle_geom, ca_coords, edge_index)
-        print("x shape before rpn", x.shape)
-        # node_scores, node_list, func_probability, x = self.rpn(x, edge_index, batch)
-        # print("x shape after rpn:", x.shape)
+        node_list, func_probability, x = self.rpn(x, edge_index, batch)
+        return node_list, func_probability, x
         # if self.perturbed:
         #     #you get series of predictions for each of the pred_classes
         #     x, x2, pred = self.OutputPred(x, batch, perturbed = True)
-        #     return x, x2, pred, node_scores, node_list, func_probability
+        #     return x, x2, pred, func_probability, node_list
         # else:
         #     x =  self.OutputPred(x, batch, perturbed = False)
-        #     return x, node_scores, node_list, func_probability
+        #     return x, func_probability, node_list

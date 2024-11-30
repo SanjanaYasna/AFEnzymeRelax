@@ -4,7 +4,7 @@ from torch_geometric.nn import GCNConv, GATConv
 from torch_geometric.nn import conv
 from torch import Tensor
 from torch_geometric.utils import k_hop_subgraph
-
+import numpy as np
 from torch_geometric.typing import OptTensor
 from typing import Callable, Optional, Tuple, Union
 from torch_geometric.utils import softmax
@@ -92,6 +92,7 @@ class FunctionalResiduePredUnit(torch.nn.Module):
         self.linear = torch.nn.Linear(input_dim, output_dim)
         self.sigmoid = Sigmoid()
 
+#SUBGRAPHS NUMBERED FROM 0!!!
     def forward(self, x, x_orig, edge_index, batch):
         """features used are original esm embeddings of each of the
 
@@ -106,8 +107,8 @@ class FunctionalResiduePredUnit(torch.nn.Module):
         x = self.conv1(
             x, edge_index
         )  # INCREasing dimension from hidden dim to input dim
-        subgraph_list = []
-        subgraph_batch_list = []
+        # subgraph_list = []
+        # subgraph_batch_list = []
         ego_nodes = []
         # Iterate over all unique graphs in the batch
         for batch_num in batch.unique():
@@ -140,21 +141,19 @@ class FunctionalResiduePredUnit(torch.nn.Module):
                     )
                 )
                 #result is a collection of anchors that are believed to have the most possible fucntional residues 
-                
-
-                score_sub = self.sigmoid(score_sub)
+                #score_sub = self.sigmoid(score_sub)
                 ego_nodes.append(subset[perm])  # original nodes
-                # Store processed subgraphs
-                assert len(score_sub) == len(
-                    perm
-                )  ## node scores length should be equal to number of nodes in subgraph
-                assert len(perm) == len(subgraph_batch)
-                subgraph_list.append(score_sub)
-                subgraph_batch_list.append(subgraph_batch)
+                # # Store processed subgraphs
+                # assert len(score_sub) == len(
+                #     perm
+                # )  ## node scores length should be equal to number of nodes in subgraph
+                # assert len(perm) == len(subgraph_batch)
+                # subgraph_list.append(score_sub)
+                # subgraph_batch_list.append(subgraph_batch)
         # x_batched, batch_mapping = to_dense_batch(torch.cat(subgraph_list, dim=0), batch=torch.cat(subgraph_batch_list, dim=0))
         return (
-            subgraph_list,
-            ego_nodes,
+            # subgraph_list,
+            ego_nodes
         )  # returns list of variable sized tensors with node scores for each ego graph, and nodes as part of ego graph for one batch
 
 """
@@ -213,19 +212,17 @@ class GraphRPN(torch.nn.Module):
             
             
         # # Graph functional label prediction 
-        node_scores_list, node_list = self.functional_residue_prediction_unit(
+        node_list = self.functional_residue_prediction_unit(
             x, x_orig, edge_index, batch
         )
-        #the idea is by controlling the loss of hte node list in corretly identifying the funcitonal regions, you'd have better loss in your attention layer helping the functionallity logits identify ego labels
-        #BCE loss between node_list and data.y
-        #BCE loss between func_probaibilty nad data.ego_label 
-        
-        #node scores list is : 
-        functionality_logits = self.functionality_prediction_unit(x, edge_index)
-        
-        func_probability = self.sigmoid(functionality_logits)
-        
         #TODO: IMPLEMENT GRAD-CAM BETWEEN THE TWO TO VISUALIZE THE ATTENTION FROM PENULTIMATE LAYER OF GCN
         if self.grad_cam:
             pass
-        return node_scores_list, node_list, func_probability, x
+        
+        functionality_logits = self.functionality_prediction_unit(x, edge_index)
+        
+        func_probability = self.sigmoid(functionality_logits)
+        #the idea is by controlling the loss of hte node list in corretly identifying the funcitonal regions, you'd have better loss in your attention layer helping the functionallity logits identify ego labels
+        #BCE loss between node_list and data.y (where there is a match)
+        #BCE loss between func_probaibilty nad data.ego_label 
+        return node_list, func_probability, x
