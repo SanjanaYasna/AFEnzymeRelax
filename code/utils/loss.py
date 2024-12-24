@@ -65,7 +65,7 @@ def compute_confusion_matrix(pred_list, node_list, data_y):
         pred_tensor = pred_tensor > 0.5
         y_true.extend(gt_tensor.cpu().numpy().tolist())
         y_pred.extend(pred_tensor.cpu().numpy().tolist())
-    confusion_matrix_pruning = sklearn_confusion_matrix(y_true, y_pred)
+    confusion_matrix_pruning = sklearn_confusion_matrix(y_true, y_pred, labels=[0, 1])
     #divide confusion matrix by length of y_true
-    confusion_matrix_pruning = confusion_matrix_pruning / len(y_true)
+    confusion_matrix_pruning = confusion_matrix_pruning
     return confusion_matrix_pruning

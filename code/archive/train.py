@@ -3,8 +3,8 @@ import torch
 from torch.nn.functional import binary_cross_entropy as bce_loss
 from torch.optim import SGD, lr_scheduler
 from torch_geometric.loader import DataLoader
-from dataloader import ProteinDataLoader
-from loss import custom_bce_loss_node_list, compute_confusion_matrix
+from utils.dataloader import ProteinDataLoader
+from utils.loss import custom_bce_loss_node_list, compute_confusion_matrix
 from sklearn.metrics import confusion_matrix as sklearn_confusion_matrix
 from model import MainModel
 from sklearn.metrics import f1_score as sklearn_f1_score
@@ -16,9 +16,10 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 batch_size = 32
 num_epochs = 100
 model = MainModel(8)
+
 optimizer = SGD(model.parameters(), lr=0.1)
-scheduler = lr_scheduler.CyclicLR(optimizer, base_lr=0.01, max_lr=0.1)
-writer = SummaryWriter(f"/kuhpc/scratch/slusky/syasna_sta/rpn_metrics/GRPN_region_pred_only")
+
+writer = SummaryWriter(f"/kuhpc/scratch/slusky/syasna_sta/rpn_metrics/GRPN_adam_dimenet/tensorboard")
 
 # #data parellel option TODO
 # if torch.cuda.device_count() > 1:
@@ -38,9 +39,10 @@ test_loader = DataLoader(testloader, batch_size=batch_size, shuffle=True)
 torch.autograd.set_detect_anomaly(True)
 
 #loss files 
-loss_file = open("/kuhpc/work/slusky/syasna_sta/func_pred/AFEnzymeRelax/rpn_runs/losses.txt", "w")
+loss_file = open("/kuhpc/scratch/slusky/syasna_sta/rpn_metrics/GRPN_adam_dimenet/losses.csv", "w")
 
-test_file = open("/kuhpc/work/slusky/syasna_sta/func_pred/AFEnzymeRelax/rpn_runs/test_losses.txt", "w")
+loss_file.write("epoch,data_y_loss,label_graph_loss,total_loss,TN_y,FP_y,FN_y,TP_y,TN_ego,FP_ego,FN_ego,TP_ego\n")
+# test_file = open("/kuhpc/work/slusky/syasna_sta/func_pred/AFEnzymeRelax/rpn_runs/test_losses.txt", "w")
 
 for epoch in range(0, num_epochs+1):
     print(f"Epoch {epoch + 1}/{num_epochs}")
@@ -90,12 +92,11 @@ for epoch in range(0, num_epochs+1):
     loss_avg = sum(losses) / len(losses)
     ego_avg = sum(ego_losses) / len(ego_losses)
     data_y_avg = sum(data_y_losses) / len(data_y_losses)
-    loss_file.write(f"Epoch {epoch}\n")
-    loss_file.write(f"Data y loss: {data_y_avg}\n")
-    loss_file.write(f"Ego label loss: {ego_avg}\n")
-    loss_file.write(f"total loss: {loss_avg}\n")
-    loss_file.write(f"confusion matrix: {confusion_matrix_sum}\n")
-    loss_file.write(f"confusion matrix ego label: {confusion_matrix_sum_ego_label}\n")
+    loss_file.write(f"{epoch},{data_y_avg},{ego_avg},{loss_avg}")
+    #confusion matrix of data_y
+    loss_file.write(f",{confusion_matrix_sum[0, 0]},{confusion_matrix_sum[0, 1]},{confusion_matrix_sum[1, 0]},{confusion_matrix_sum[1, 1]}")
+    #confusion matrix of ego label
+    loss_file.write(f",{confusion_matrix_sum_ego_label[0, 0]},{confusion_matrix_sum_ego_label[0, 1]},{confusion_matrix_sum_ego_label[1, 0]},{confusion_matrix_sum_ego_label[1, 1]}\n")
     loss_file.flush()
     #log in writer
     writer.add_scalar("data y loss", data_y_avg, epoch)
@@ -126,7 +127,7 @@ for epoch in range(0, num_epochs+1):
     #         #DATA.EGO_LABELS LOSS
     #         func_probability = torch.squeeze(func_probability)
     #         ego_label_loss = bce_loss(func_probability, ego_labels, reduction="mean")
-            
+    
     #         #total loss is sum of the two
     #         test_loss = (data_y_loss + ego_label_loss)
     #         losses.append(test_loss.item())
@@ -148,4 +149,4 @@ for epoch in range(0, num_epochs+1):
     #     test_file.write(f"confusion matrix: {confusion_matrix_sum}\n")
     #     test_file.flush()
 loss_file.close()
-test_file.close()
+# test_file.close()

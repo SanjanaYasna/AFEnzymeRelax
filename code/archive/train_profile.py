@@ -3,8 +3,8 @@ import torch
 from torch.nn.functional import binary_cross_entropy as bce_loss
 from torch.optim import SGD, lr_scheduler
 from torch_geometric.loader import DataLoader
-from dataloader import ProteinDataLoader
-from loss import custom_bce_loss_node_list, compute_confusion_matrix
+from utils.dataloader import ProteinDataLoader
+from utils.loss import custom_bce_loss_node_list, compute_confusion_matrix
 from model import MainModel
 from sklearn.metrics import f1_score as sklearn_f1_score
 from torch.profiler import profile, record_function, ProfilerActivity

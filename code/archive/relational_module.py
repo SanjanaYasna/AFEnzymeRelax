@@ -18,7 +18,7 @@ from torch_geometric.nn import global_mean_pool
 from torch.nn import LazyLinear
 from torch.nn import Linear
 from torch_geometric.nn.models.dimenet import SphericalBasisLayer, BesselBasisLayer
-from dimenetpp_adjusted import InteractionBlock
+from utils.dimenetpp_adjusted import InteractionBlock
 """
 Embedds the nodes in the graph 
 

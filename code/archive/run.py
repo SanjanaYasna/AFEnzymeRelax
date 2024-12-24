@@ -3,7 +3,7 @@ from torch_geometric.loader import  DataLoader
 import numpy as np
 import pandas as pd
 import os
-from relational_module import InitialInteraction
+from archive.relational_module import InitialInteraction
 import re
 from torch_geometric.data import Data
 from torch.nn import LazyLinear

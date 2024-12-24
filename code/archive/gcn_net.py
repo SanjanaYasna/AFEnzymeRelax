@@ -182,7 +182,7 @@ class GraphRPN(torch.nn.Module):
         self.functionality_prediction_unit = GATConv(hidden_dim, num_classes)
         self.sigmoid = Sigmoid()
         self.grad_cam = grad_cam
-
+#NOTE: RECONSIDER FLOAT CONVERSIONS (TRY T0 KEEP TO ONE KIND OF FLOAT)
     def forward(self, x, edge_index, batch = None):
         """_summary_
 

@@ -1,0 +1,12 @@
+Initial run params:
+
+optim: SGD, lr 0.01 - 0.1 cyclic LR 
+num epochs 100
+
+Metrics:
+BCE (non anomaly inversion) from compute_confusion_matrix (so above % tp possible),
+
+Changes for future runs: loss itself, 
+    optimizer (this alone should be same run as current), just use adam,
+    dimenet vs no dimenet
+    

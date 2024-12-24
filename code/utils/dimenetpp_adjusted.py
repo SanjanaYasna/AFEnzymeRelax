@@ -14,7 +14,7 @@ from torch_geometric.data import Dataset, download_url
 from torch_geometric.data.makedirs import makedirs
 from torch_geometric.nn import radius_graph
 from torch_geometric.nn.inits import glorot_orthogonal
-from resolver import activation_resolver
+from utils.resolver import activation_resolver
 from torch_geometric.nn import global_mean_pool
 
 #activation_resolver = torch.nn.ReLU
