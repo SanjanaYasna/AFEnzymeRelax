@@ -1,0 +1,22 @@
+Traceback (most recent call last):
+  File "train.py", line 57, in <module>
+    for i, data in enumerate(train_loader):
+  File "/home/syasna_sta/.conda/envs/graph/lib/python3.7/site-packages/torch/utils/data/dataloader.py", line 628, in __next__
+    data = self._next_data()
+  File "/home/syasna_sta/.conda/envs/graph/lib/python3.7/site-packages/torch/utils/data/dataloader.py", line 671, in _next_data
+    data = self._dataset_fetcher.fetch(index)  # may raise StopIteration
+  File "/home/syasna_sta/.conda/envs/graph/lib/python3.7/site-packages/torch/utils/data/_utils/fetch.py", line 58, in fetch
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+  File "/home/syasna_sta/.conda/envs/graph/lib/python3.7/site-packages/torch/utils/data/_utils/fetch.py", line 58, in <listcomp>
+    data = [self.dataset[idx] for idx in possibly_batched_index]
+  File "/kuhpc/work/slusky/syasna_sta/func_pred/code/utils/dataloader.py", line 71, in __getitem__
+    return torch.load(file_path)
+  File "/home/syasna_sta/.conda/envs/graph/lib/python3.7/site-packages/torch/serialization.py", line 795, in load
+    return _legacy_load(opened_file, map_location, pickle_module, **pickle_load_args)
+  File "/home/syasna_sta/.conda/envs/graph/lib/python3.7/site-packages/torch/serialization.py", line 1002, in _legacy_load
+    magic_number = pickle_module.load(f, **pickle_load_args)
+_pickle.UnpicklingError: pickle data was truncated
+
+ERROR conda.cli.main_run:execute(125): `conda run python train.py` failed. (See above for error)
+Epoch 1/100
+

@@ -1,0 +1,4 @@
+adam optimizer
+NO dimenet. Instead, replace with X graph convolutional layers in place of interaction block. Of course, node embeddings consistent
+is still graph based 
+BCE loss as in original protein rpn paper, and no anomaly detection considerations

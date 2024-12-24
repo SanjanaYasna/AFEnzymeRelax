@@ -1,5 +1,5 @@
 adam optimizer
 dimenet rbf and sbf filters kept
-is still graph based and shit 
+is still graph based 
 BCE loss as in original protein rpn paper, and no anomaly detection considerations
 

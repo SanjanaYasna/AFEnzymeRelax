@@ -153,6 +153,8 @@ class FunctionalResiduePredUnit(torch.nn.Module):
             ego_nodes
         )  # returns list of variable sized tensors with node scores for each ego graph, and nodes as part of ego graph for one batch
 
+
+
 """
 TODO : Implement GRAD-CAM layer visualizations  + output functionality scores per node
 TODO : add a heal-inspired transformer component after the message passing layers 
