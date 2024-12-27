@@ -1,10 +1,10 @@
 #!/bin/bash -l
 #SBATCH --job-name=gconv
 #SBATCH --output=gconv.txt
-#SBATCH --partition bigjay
+#SBATCH --partition sixhour
 #SBATCH --gpus=1
-#SBATCH --mem-per-gpu=20G
-#SBATCH --time=72:00:00
+#SBATCH --mem-per-gpu=25G
+#SBATCH --time=6:00:00
 
 module load conda
 conda activate graph
