@@ -1,0 +1,3 @@
+epoch,data_y_loss,label_graph_loss,total_loss,TN_y,FP_y,FN_y,TP_y,TN_ego,FP_ego,FN_ego,TP_ego
+alpha: 0.25, reduction: ['mean', 'mean_pos']
+0,0.053054997231811285,0.17262484086677432,0.22567983716726303,2477459.0,2001.0,90015.0,21.0,128.0,243511.0,2.0,3636.0

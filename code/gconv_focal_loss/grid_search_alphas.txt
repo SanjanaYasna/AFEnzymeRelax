@@ -1,0 +1,1 @@
+slurmstepd: error: *** JOB 28191322 ON r12r10n01 CANCELLED AT 2024-12-27T17:42:00 ***
